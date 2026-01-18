@@ -1,33 +1,41 @@
-using UnityEngine;
-using UnityEngine.UI;
+using System;
 using TMPro;
-using UnityEngine.InputSystem; // For new Input System
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class PlayerStats : MonoBehaviour
 {
-    public static PlayerStats Instance; // Singleton
+    public static PlayerStats Instance;
 
     [Header("Money")]
     public int money = 100;
     public TextMeshProUGUI moneyText;
 
     [Header("Skills")]
-    public float[] skills = { 0f, 0f, 0f }; // 0=Speed, 1=Str, 2=Int
-    public float xpToNextLevel = 100f;
+    public float[] skills = { 0f, 0f, 0f }; // 0=Speed, 1=Str, 2=Int (current XP)
+    public int[] levels = { 1, 1, 1 }; // Current levels
+    public float baseXpToNext = 100f; // Scales: Lv2=150, Lv3=200, etc.
     public Slider[] skillSliders;
     public TextMeshProUGUI[] skillLabels;
 
     [Header("UI")]
     public CanvasGroup pauseCanvasGroup;
-    public GameObject pausePanel; // Or use SetActive
+    public GameObject pausePanel;
 
     private bool isPaused = false;
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
-        DontDestroyOnLoad(gameObject); // Persists scenes
+        if (Instance == null)
+        {
+            Instance = this;
+            // DontDestroyOnLoad fix later – see Step 4
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     void Start()
@@ -38,16 +46,42 @@ public class PlayerStats : MonoBehaviour
 
     void Update()
     {
-        // ESC Pause (prototype – Input System later)
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
-        {
             TogglePause();
-        }
-
-        // Auto-update every frame (simple for proto)
         UpdateMoneyUI();
         UpdateSkillUI();
     }
+
+    // ENHANCED: XP Gain + Auto-Level
+    public void AddXP(int skillIndex, float amount)
+    {
+        if (skillIndex < 0 || skillIndex > 2) return;
+
+        skills[skillIndex] += amount;
+        CheckLevelUp(skillIndex);
+        UpdateSkillUI(); // Refresh bars/labels
+    }
+
+    void CheckLevelUp(int skillIndex)
+    {
+        float xpNeeded = baseXpToNext + (levels[skillIndex] - 1) * 50f; // Scales up
+        while (skills[skillIndex] >= xpNeeded)
+        {
+            skills[skillIndex] -= xpNeeded; // Overflow to next bar
+            levels[skillIndex]++;
+            xpNeeded = baseXpToNext + (levels[skillIndex] - 1) * 50f; // Recalc next
+            Debug.Log($"Level Up! {GetSkillName(skillIndex)} Lv{levels[skillIndex]}");
+            // Optional: Particle effect or UI popup here
+        }
+    }
+
+    string GetSkillName(int index) => index switch
+    {
+        0 => "Speed",
+        1 => "Strength",
+        2 => "Intelligence",
+        _ => "Unknown"
+    };
 
     void UpdateMoneyUI()
     {
@@ -58,18 +92,14 @@ public class PlayerStats : MonoBehaviour
     {
         for (int i = 0; i < 3; i++)
         {
-            if (skillSliders[i]) skillSliders[i].value = skills[i] / xpToNextLevel;
+            float xpNeeded = baseXpToNext + (levels[i] - 1) * 50f;
+            if (skillSliders[i]) skillSliders[i].value = skills[i] / xpNeeded;
             if (skillLabels[i])
-            {
-                int level = 1 + (int)(skills[i] / xpToNextLevel);
-                skillLabels[i].text = new string[] { "Speed", "Strength", "Intelligence" }[i] +
-                                     ": Lv " + level + " (" + (int)skills[i] + "/" + (int)xpToNextLevel + ")";
-            }
+                skillLabels[i].text = $"{GetSkillName(i)}: Lv {levels[i]} ({(int)skills[i]:F0}/{xpNeeded:F0})";
         }
     }
 
     public void AddMoney(int amount) { money += amount; }
-    public void AddXP(int skillIndex, float amount) { skills[skillIndex] += amount; }
 
     void TogglePause()
     {
@@ -77,7 +107,7 @@ public class PlayerStats : MonoBehaviour
         pauseCanvasGroup.alpha = isPaused ? 1f : 0f;
         pauseCanvasGroup.interactable = isPaused;
         pauseCanvasGroup.blocksRaycasts = isPaused;
-        Time.timeScale = isPaused ? 0f : 1f; // Pause game
+        Time.timeScale = isPaused ? 0f : 1f;
         Cursor.lockState = isPaused ? CursorLockMode.None : CursorLockMode.Locked;
     }
 }

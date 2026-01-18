@@ -122,6 +122,7 @@ namespace StarterAssets
             }
         }
 
+        public bool IsSprinting() => _input != null && _input.sprint;
 
         private void Awake()
         {
@@ -284,9 +285,9 @@ namespace StarterAssets
         {
             if (Grounded)
             {
-                Debug.Log("Grounded! Reset vertical velocity");
+                //Debug.Log("Grounded! Reset vertical velocity");
                 // reset the fall timeout timer
-                _fallTimeoutDelta = FallTimeout;
+                //_fallTimeoutDelta = FallTimeout;
 
                 // update animator if using character
                 if (_hasAnimator)
