@@ -1,15 +1,20 @@
-using StarterAssets;
+﻿using StarterAssets;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class SprintXP : MonoBehaviour
 {
-    [Header("XP Gain")]
-    public float xpPerSecond = 1f; // ~1 XP/sec sprinting
+    [Header("XP Settings")]
+    [Tooltip("XP gained per second while sprinting and actually moving")]
+    public float xpPerSecond = 1f;
+
+    [Header("Debug")]
+    public bool showDebugLogs = true; // Turn off after testing
 
     private ThirdPersonController playerController;
     private PlayerStats stats;
-    private StarterAssetsInputs input; // Direct ref to inputs
+    private StarterAssetsInputs input;
+
+    private float lastLogTime;
 
     void Start()
     {
@@ -17,24 +22,34 @@ public class SprintXP : MonoBehaviour
         stats = PlayerStats.Instance;
         input = GetComponent<StarterAssetsInputs>();
 
-        if (playerController == null) Debug.LogError("SprintXP: No ThirdPersonController on this GameObject!");
-        if (stats == null) Debug.LogError("SprintXP: PlayerStats.Instance is null!");
-        if (input == null) Debug.LogError("SprintXP: No StarterAssetsInputs on this GameObject!");
+        if (playerController == null || stats == null || input == null)
+        {
+            Debug.LogError("SprintXP: Missing required component!");
+            enabled = false;
+            return;
+        }
     }
 
     void Update()
     {
-        // Log sprint state every 1 sec for testing
-        if (Time.frameCount % 60 == 0) // ~1/sec
+        bool isSprinting = playerController.IsSprinting();           // Uses your public method
+        bool isMoving = input.move.sqrMagnitude > 0.01f;             // Actually trying to move
+        bool shouldGainXP = isSprinting && isMoving;
+
+        // Debug output (every second)
+        if (showDebugLogs && Time.time - lastLogTime > 1f)
         {
-            Debug.Log($"SprintXP Debug: Sprint Input = {input?.sprint}, Controller Sprint = {playerController?.IsSprinting()}, Stats = {(stats != null ? "OK" : "NULL")}");
+            Debug.Log($"SprintXP → Sprinting: {isSprinting} | Moving: {isMoving} | Gaining XP: {shouldGainXP}");
+            lastLogTime = Time.time;
         }
 
-        if (playerController != null && playerController.IsSprinting() && stats != null)
+        if (shouldGainXP)
         {
             float xpThisFrame = xpPerSecond * Time.deltaTime;
-            stats.AddXP(0, xpThisFrame); // Speed index 0
-            Debug.Log($"Added {xpThisFrame:F2} XP to Speed. Total: {stats.skills[0]:F1}");
+            stats.AddXP(0, xpThisFrame); // Speed = index 0
+
+            if (showDebugLogs)
+                Debug.Log($"→ Gained {xpThisFrame:F3} Speed XP (total: {stats.skills[0]:F1})");
         }
     }
 }
