@@ -15,16 +15,16 @@ public enum CookingState
 /// <summary>
 /// Base class for all food items (meat, fries, etc)
 /// </summary>
-public class FoodItem : MonoBehaviour, IHoldable
+public class FoodItem : MonoBehaviour, IHoldable, IInteractable
 {
     [Header("Food Info")]
     public string foodName = "Food";
     public CookingState currentState = CookingState.Raw;
 
     [Header("Cooking Times")]
-    public float cookTime = 5f;           // Time to go from raw to cooked
-    public float burnTime = 3f;           // Time from cooked to burnt
-    public float flipBonus = 3f;          // Extra burn protection from perfect flip
+    public float cookTime = 5f;
+    public float burnTime = 3f;
+    public float flipBonus = 3f;
 
     [Header("Current Cooking")]
     public float currentCookTimer = 0f;
@@ -68,22 +68,25 @@ public class FoodItem : MonoBehaviour, IHoldable
     {
         currentCookTimer += Time.deltaTime;
 
-        // Update cooking state based on timer
+        // Transition from Prepared/Raw to Cooking
         if (currentState == CookingState.Prepared || currentState == CookingState.Raw)
         {
-            if (currentCookTimer < cookTime)
-            {
-                currentState = CookingState.Cooking;
-            }
-            else
+            currentState = CookingState.Cooking;
+        }
+
+        // Transition from Cooking to Cooked
+        if (currentState == CookingState.Cooking)
+        {
+            if (currentCookTimer >= cookTime)
             {
                 currentState = CookingState.Cooked;
-                currentCookTimer = 0f; // Reset for burn timer
+                currentCookTimer = 0f;
+                Debug.Log("🍔 Food is now COOKED!");
             }
         }
+        // Transition from Cooked to Burnt
         else if (currentState == CookingState.Cooked)
         {
-            // Check if we should burn (with flip bonus protection)
             float effectiveBurnTime = burnTime + flipBonusTimer;
 
             if (currentCookTimer >= effectiveBurnTime)
@@ -111,10 +114,7 @@ public class FoodItem : MonoBehaviour, IHoldable
     {
         hasBeenFlipped = true;
         flipBonusTimer = flipBonus;
-
-        // Speed up cooking slightly
         currentCookTimer += 1f;
-
         Debug.Log($"✨ Perfect flip! {flipBonus}s burn protection");
     }
 
@@ -124,7 +124,6 @@ public class FoodItem : MonoBehaviour, IHoldable
 
     public bool CanPickup()
     {
-        // Can always pick up food
         return true;
     }
 
@@ -132,13 +131,11 @@ public class FoodItem : MonoBehaviour, IHoldable
     {
         originalParent = transform.parent;
 
-        // Parent to hand
         transform.SetParent(handPosition);
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
         transform.localScale = originalScale;
 
-        // Disable physics
         if (rb != null)
         {
             rb.isKinematic = true;
@@ -150,16 +147,13 @@ public class FoodItem : MonoBehaviour, IHoldable
             col.isTrigger = true;
         }
 
-        // Stop cooking when picked up
         StopCooking();
     }
 
     public void OnDrop()
     {
-        // Unparent
         transform.SetParent(originalParent);
 
-        // Re-enable physics
         if (rb != null)
         {
             rb.isKinematic = false;
@@ -174,12 +168,10 @@ public class FoodItem : MonoBehaviour, IHoldable
 
     public void OnPlaceAt(Transform targetPosition)
     {
-        // Place at target
         transform.SetParent(targetPosition);
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
 
-        // Keep physics disabled when placed on station
         if (rb != null)
         {
             rb.isKinematic = true;
@@ -222,5 +214,25 @@ public class FoodItem : MonoBehaviour, IHoldable
     public bool IsBurnt()
     {
         return currentState == CookingState.Burnt;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  IINTERACTABLE IMPLEMENTATION
+    // ═══════════════════════════════════════════════════════════════
+
+    public string GetPromptText()
+    {
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething())
+            return "";
+
+        return $"E to Pick Up {GetItemName()}";
+    }
+
+    public void Interact()
+    {
+        if (PlayerHands.Instance != null && !PlayerHands.Instance.IsHoldingSomething())
+        {
+            PlayerHands.Instance.TryPickup(gameObject);
+        }
     }
 }

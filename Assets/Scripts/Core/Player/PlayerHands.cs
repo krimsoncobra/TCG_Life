@@ -2,25 +2,33 @@
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Manages what the player is currently holding.
-/// Items can be picked up, held, and placed down.
+/// Enhanced PlayerHands - allows dropping items anywhere
+/// Press Q to drop current item on the ground
 /// </summary>
 public class PlayerHands : MonoBehaviour
 {
-    public static PlayerHands Instance;
-
-    [Header("Hand Position")]
-    [Tooltip("Where held items appear (create empty child at camera position)")]
+    [Header("Hand Settings")]
     public Transform handPosition;
+    public float pickupRange = 3f;
+
+    [Header("Drop Settings")]
+    [Tooltip("How far in front of player to drop items")]
+    public float dropDistance = 1f;
+
+    [Tooltip("Height above ground to drop items")]
+    public float dropHeight = 0.5f;
+
+    [Tooltip("Layer mask for ground detection")]
+    public LayerMask groundLayer;
+
+    [Header("Input")]
+    public KeyCode dropKey = KeyCode.Q;
+    private InputAction dropAction;
 
     [Header("Current State")]
-    public IHoldable currentItem;
-    public GameObject currentItemObject;
+    public GameObject currentItem;
 
-    [Header("Debug")]
-    public bool showDebugLogs = false;
-
-    private InputAction dropAction;
+    public static PlayerHands Instance { get; private set; }
 
     void Awake()
     {
@@ -33,147 +41,192 @@ public class PlayerHands : MonoBehaviour
             Destroy(gameObject);
         }
 
-        // Setup drop/throw input (Q key)
+        // Setup drop input
         dropAction = new InputAction("Drop", InputActionType.Button);
-        dropAction.AddBinding("<Keyboard>/q");
-        dropAction.performed += ctx => TryDrop();
+        dropAction.AddBinding($"<Keyboard>/{dropKey.ToString().ToLower()}");
+        dropAction.performed += ctx => TryDropItem();
     }
 
-    void OnEnable() => dropAction.Enable();
-    void OnDisable() => dropAction.Disable();
+    void OnEnable() => dropAction?.Enable();
+    void OnDisable() => dropAction?.Disable();
 
     void Start()
     {
-        // Create hand position if not assigned
         if (handPosition == null)
         {
-            GameObject handPos = new GameObject("HandPosition");
-            handPos.transform.SetParent(Camera.main.transform);
-            handPos.transform.localPosition = new Vector3(0.3f, -0.2f, 0.5f); // Slightly right and down from camera
-            handPos.transform.localRotation = Quaternion.identity;
-            handPosition = handPos.transform;
+            Debug.LogError("❌ PlayerHands: Hand Position not assigned!");
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  PICKUP / DROP SYSTEM
-    // ═══════════════════════════════════════════════════════════════
-
     /// <summary>
-    /// Pick up an item. Returns true if successful.
+    /// Pick up an item (called from PlayerInteract)
     /// </summary>
-    public bool TryPickup(GameObject itemObject)
+    public bool TryPickup(GameObject item)
     {
-        // Can't pick up if already holding something
-        if (IsHoldingSomething())
+        if (currentItem != null)
         {
-            if (showDebugLogs)
-                Debug.LogWarning("⚠️ Already holding something!");
+            Debug.LogWarning("⚠️ Hands are full! Drop current item first (Press Q)");
             return false;
         }
 
-        IHoldable holdable = itemObject.GetComponent<IHoldable>();
-
+        IHoldable holdable = item.GetComponent<IHoldable>();
         if (holdable == null)
         {
-            Debug.LogError($"❌ {itemObject.name} doesn't have IHoldable component!");
+            Debug.LogWarning($"⚠️ {item.name} is not holdable!");
             return false;
         }
 
-        // Can this item be picked up right now?
         if (!holdable.CanPickup())
         {
-            if (showDebugLogs)
-                Debug.LogWarning($"⚠️ Can't pick up {itemObject.name} right now");
             return false;
         }
 
-        // Pick it up!
-        currentItem = holdable;
-        currentItemObject = itemObject;
-
+        currentItem = item;
         holdable.OnPickup(handPosition);
 
-        if (showDebugLogs)
-            Debug.Log($"✅ Picked up: {itemObject.name}");
-
+        Debug.Log($"✅ Picked up: {holdable.GetItemName()}");
         return true;
     }
 
     /// <summary>
-    /// Drop/place the currently held item
+    /// Drop the current item on the ground in front of player
     /// </summary>
-    public void TryDrop()
+    void TryDropItem()
     {
-        if (!IsHoldingSomething()) return;
+        if (currentItem == null)
+        {
+            Debug.Log("Nothing to drop!");
+            return;
+        }
 
-        currentItem.OnDrop();
+        IHoldable holdable = currentItem.GetComponent<IHoldable>();
+        if (holdable == null)
+        {
+            Debug.LogError($"❌ Current item {currentItem.name} is not IHoldable!");
+            return;
+        }
 
-        if (showDebugLogs)
-            Debug.Log($"📦 Dropped: {currentItemObject.name}");
+        // Calculate drop position
+        Vector3 dropPosition = CalculateDropPosition();
+
+        // Drop the item
+        holdable.OnDrop();
+        currentItem.transform.position = dropPosition;
+
+        // CRITICAL: Make sure item is interactable after drop
+        // Re-enable collider
+        Collider col = currentItem.GetComponent<Collider>();
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = false;
+        }
+
+        // Make sure it has the Interactable tag
+        if (!currentItem.CompareTag("Interactable"))
+        {
+            currentItem.tag = "Interactable";
+            Debug.Log($"✅ Set {currentItem.name} tag to Interactable");
+        }
+
+        // Re-enable rigidbody physics
+        Rigidbody rb = currentItem.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        Debug.Log($"📦 Dropped: {holdable.GetItemName()} at {dropPosition}");
 
         currentItem = null;
-        currentItemObject = null;
     }
 
     /// <summary>
-    /// Place held item at a specific position (for placing on stations)
+    /// Calculate where to drop the item (in front of player, on ground)
+    /// </summary>
+    Vector3 CalculateDropPosition()
+    {
+        // Start position: in front of player
+        Vector3 forwardPosition = transform.position + transform.forward * dropDistance;
+
+        // Raycast down to find ground
+        Ray ray = new Ray(forwardPosition + Vector3.up * 2f, Vector3.down);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, 10f, groundLayer))
+        {
+            // Drop on the ground surface
+            return hit.point + Vector3.up * dropHeight;
+        }
+        else
+        {
+            // No ground found, drop at player height
+            return forwardPosition + Vector3.up * dropHeight;
+        }
+    }
+
+    /// <summary>
+    /// Try to place current item at a specific location (e.g. on grill)
     /// </summary>
     public bool TryPlaceAt(Transform targetPosition)
     {
-        if (!IsHoldingSomething()) return false;
+        if (currentItem == null)
+        {
+            Debug.LogWarning("⚠️ No item to place!");
+            return false;
+        }
 
-        currentItem.OnPlaceAt(targetPosition);
+        IHoldable holdable = currentItem.GetComponent<IHoldable>();
+        if (holdable == null)
+        {
+            Debug.LogError($"❌ {currentItem.name} is not IHoldable!");
+            return false;
+        }
 
-        if (showDebugLogs)
-            Debug.Log($"📍 Placed {currentItemObject.name} at {targetPosition.name}");
+        holdable.OnPlaceAt(targetPosition);
+        Debug.Log($"📍 Placed {holdable.GetItemName()} at {targetPosition.name}");
 
         currentItem = null;
-        currentItemObject = null;
-
         return true;
     }
 
     /// <summary>
-    /// Check if player is holding something
+    /// Check if holding any item
     /// </summary>
     public bool IsHoldingSomething()
     {
-        return currentItem != null && currentItemObject != null;
+        return currentItem != null;
     }
 
     /// <summary>
-    /// Check if player is holding a specific type of item
+    /// Check if holding a specific type
     /// </summary>
-    public bool IsHolding<T>() where T : IHoldable
+    public bool IsHolding<T>() where T : Component
     {
-        return IsHoldingSomething() && currentItem is T;
+        if (currentItem == null) return false;
+        return currentItem.GetComponent<T>() != null;
     }
 
     /// <summary>
-    /// Get the currently held item of a specific type
+    /// Get the currently held item
     /// </summary>
-    public T GetHeldItem<T>() where T : IHoldable
+    public T GetHeldItem<T>() where T : Component
     {
-        if (IsHolding<T>())
-            return (T)currentItem;
-
-        return default(T);
+        if (currentItem == null) return null;
+        return currentItem.GetComponent<T>();
     }
-}
 
-// ═══════════════════════════════════════════════════════════════
-//  HOLDABLE INTERFACE
-// ═══════════════════════════════════════════════════════════════
+    // Debug visualization
+    void OnDrawGizmos()
+    {
+        if (!enabled) return;
 
-/// <summary>
-/// Interface for items that can be picked up and held by the player
-/// </summary>
-public interface IHoldable
-{
-    bool CanPickup();
-    void OnPickup(Transform handPosition);
-    void OnDrop();
-    void OnPlaceAt(Transform targetPosition);
-    string GetItemName();
+        // Show drop position
+        Vector3 dropPos = CalculateDropPosition();
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(dropPos, 0.2f);
+        Gizmos.DrawLine(transform.position, dropPos);
+    }
 }

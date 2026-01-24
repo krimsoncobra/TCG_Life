@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
@@ -23,16 +23,38 @@ public class CrosshairReticle : MonoBehaviour
     void Start()
     {
         mainCam = Camera.main;
-        interactLayer = ~LayerMask.GetMask("Player");
+        interactLayer = ~LayerMask.GetMask("Player"); // Ignore player layer
 
-        if (reticleImage != null)
+        if (mainCam == null)
         {
-            reticleImage.color = normalColor;
+            Debug.LogError("❌ CrosshairReticle: No Main Camera found!");
+        }
 
-            // Set size
-            RectTransform rect = reticleImage.GetComponent<RectTransform>();
+        if (reticleImage == null)
+        {
+            Debug.LogError("❌ CrosshairReticle: Reticle Image not assigned!");
+            reticleImage = GetComponent<Image>();
+
+            if (reticleImage == null)
+            {
+                Debug.LogError("❌ CrosshairReticle: No Image component found!");
+                enabled = false;
+                return;
+            }
+        }
+
+        // Ensure reticle is visible
+        reticleImage.color = normalColor;
+        reticleImage.enabled = true;
+
+        // Set size
+        RectTransform rect = reticleImage.GetComponent<RectTransform>();
+        if (rect != null)
+        {
             rect.sizeDelta = new Vector2(size, size);
         }
+
+        Debug.Log($"✅ CrosshairReticle initialized successfully");
     }
 
     void Update()

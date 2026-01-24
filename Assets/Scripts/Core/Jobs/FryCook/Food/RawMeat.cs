@@ -3,7 +3,7 @@
 /// <summary>
 /// Raw meat chunk that needs to be smashed
 /// </summary>
-public class RawMeat : MonoBehaviour, IHoldable
+public class RawMeat : MonoBehaviour, IHoldable, IInteractable
 {
     [Header("Prefab References")]
     public GameObject burgerPattyPrefab;  // What this becomes when smashed
@@ -41,6 +41,10 @@ public class RawMeat : MonoBehaviour, IHoldable
             Debug.LogWarning($"⚠️ Added BoxCollider to {gameObject.name}");
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  IHOLDABLE IMPLEMENTATION
+    // ═══════════════════════════════════════════════════════════════
 
     public bool CanPickup() => true;
 
@@ -85,6 +89,30 @@ public class RawMeat : MonoBehaviour, IHoldable
     }
 
     public string GetItemName() => "Raw Meat";
+
+    // ═══════════════════════════════════════════════════════════════
+    //  IINTERACTABLE IMPLEMENTATION
+    // ═══════════════════════════════════════════════════════════════
+
+    public string GetPromptText()
+    {
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething())
+            return "";
+
+        return "E to Pick Up Raw Meat";
+    }
+
+    public void Interact()
+    {
+        if (PlayerHands.Instance != null && !PlayerHands.Instance.IsHoldingSomething())
+        {
+            PlayerHands.Instance.TryPickup(gameObject);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SMASHING
+    // ═══════════════════════════════════════════════════════════════
 
     /// <summary>
     /// Convert this meat into a burger patty
