@@ -60,6 +60,40 @@ public class PlayerInteract : MonoBehaviour
     void Update()
     {
         CheckForInteractable();
+
+        // Check for F key press (flip minigame for CookingPan)
+        // Use the already-detected interactable instead of a fresh raycast
+        if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
+        {
+            if (currentInteractable != null)
+            {
+                // Try to get CookingPan from the current interactable
+                CookingPan pan = (currentInteractable as MonoBehaviour)?.GetComponent<CookingPan>();
+
+                if (pan != null)
+                {
+                    Debug.Log($"🔑 F pressed while looking at {pan.gameObject.name}");
+
+                    if (pan.CanFlip())
+                    {
+                        Debug.Log("✅ CanFlip returned true, starting minigame...");
+                        pan.TryStartFlipMinigame();
+                    }
+                    else
+                    {
+                        Debug.Log("❌ CanFlip returned false - check conditions");
+                    }
+                }
+                else
+                {
+                    Debug.Log("🔑 F pressed but not looking at a CookingPan");
+                }
+            }
+            else
+            {
+                Debug.Log("🔑 F pressed but no interactable detected");
+            }
+        }
     }
 
     void CheckForInteractable()

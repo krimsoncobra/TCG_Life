@@ -1,5 +1,6 @@
-﻿using UnityEngine;
-using DG.Tweening;
+﻿using DG.Tweening;
+using TMPro;
+using UnityEngine;
 
 /// <summary>
 /// Represents a physical card object in the game world.
@@ -20,6 +21,13 @@ public class Card3D : MonoBehaviour, IInteractable
     public float hoverHeight = 0.2f;
     public float hoverSpeed = 1f;
     public float rotationSpeed = 30f;
+
+    [Header("Stats Text (Child Objects)")]
+    public TextMeshPro hpLabel;
+    public TextMeshPro powerLabel;
+    public TextMeshPro speedLabel;
+    public TextMeshPro intLabel;
+    public TextMeshPro nameLabel;
 
     private Vector3 startPosition;
     private bool isHovering = true;
@@ -50,27 +58,27 @@ public class Card3D : MonoBehaviour, IInteractable
     /// </summary>
     public void InitializeCard()
     {
-        if (cardData == null)
-        {
-            Debug.LogError("Card3D has no CardData assigned!");
-            return;
-        }
+        if (cardData == null) return;
 
-        // Apply card artwork to material
+        // Art (your existing)
         if (cardData.cardArtwork != null && cardRenderer != null)
-        {
-            Material cardMaterial = cardRenderer.material;
-            cardMaterial.mainTexture = cardData.cardArtwork.texture;
-        }
+            cardRenderer.material.mainTexture = cardData.cardArtwork.texture;
 
-        // Spawn holographic effect if card type requires it
+        // Holo (your existing)
         if (cardData.cardType >= CardType.HoloRare && cardData.holoEffectPrefab != null)
         {
-            holoEffectInstance = Instantiate(cardData.holoEffectPrefab, transform);
-            holoEffectInstance.transform.localPosition = Vector3.zero;
+            if (holoEffectInstance == null)
+                holoEffectInstance = Instantiate(cardData.holoEffectPrefab, transform);
         }
 
-        // Set name for easier debugging
+        // NEW: Stats Display
+        nameLabel.text = cardData.cardName;
+        hpLabel.text = $"HP: {cardData.health}";
+        powerLabel.text = $"PWR: {cardData.powerStat}";
+        speedLabel.text = $"SPD: {cardData.speedStat}";
+        intLabel.text = $"INT: {cardData.intelligenceStat}";
+
+        // Name card for debug
         gameObject.name = $"Card3D - {cardData.GetFullCardName()}";
     }
 

@@ -19,9 +19,7 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
     public FoodItem currentFood;
     public bool isOnGrill = false;
 
-    [Header("Flip Minigame")]
-    public KeyCode flipKey = KeyCode.F;
-    private InputAction flipAction;
+    // Note: F key is now handled in PlayerInteract.cs, not here
 
     private Rigidbody rb;
     private Collider col;
@@ -33,10 +31,6 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
         col = GetComponent<Collider>();
         originalScale = transform.localScale;
 
-        flipAction = new InputAction("FlipFood", InputActionType.Button);
-        flipAction.AddBinding($"<Keyboard>/{flipKey.ToString().ToLower()}");
-        flipAction.performed += ctx => TryStartFlipMinigame();
-
         if (foodPosition == null)
         {
             GameObject foodPos = new GameObject("FoodPosition");
@@ -47,11 +41,9 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
         }
     }
 
-    void OnEnable() => flipAction?.Enable();
-    void OnDisable() => flipAction?.Disable();
-
     void Update()
     {
+        // Handle cooking state
         if (isOnGrill && currentFood != null)
         {
             if (!currentFood.isOnGrill)
@@ -63,7 +55,61 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
         {
             currentFood.StopCooking();
         }
+
+        // Show/hide flip prompt based on conditions
+        UpdateFlipPrompt();
     }
+
+    void UpdateFlipPrompt()
+    {
+        // Show prompt when LOOKING at pan on grill with cooking food
+        // (not when holding it - that doesn't make sense!)
+
+        bool hasFood = currentFood != null;
+        bool onGrill = isOnGrill;
+        bool isCooking = hasFood && currentFood.currentState == CookingState.Cooking;
+        bool notFlipped = hasFood && !currentFood.hasBeenFlipped;
+        bool notHolding = PlayerHands.Instance == null || !PlayerHands.Instance.IsHoldingSomething();
+
+        bool shouldShowPrompt =
+            hasFood &&
+            onGrill &&
+            isCooking &&
+            notFlipped &&
+            notHolding; // Only show when NOT holding anything
+
+        // Debug logging (only log when state changes)
+        if (shouldShowPrompt != lastPromptState)
+        {
+            lastPromptState = shouldShowPrompt;
+
+            if (shouldShowPrompt)
+            {
+                Debug.Log("🟢 Flip prompt should SHOW (looking at cooking pan on grill)");
+            }
+            else
+            {
+                Debug.Log($"🔴 Flip prompt should HIDE | " +
+                    $"HasFood:{hasFood} OnGrill:{onGrill} Cooking:{isCooking} " +
+                    $"NotFlipped:{notFlipped} NotHolding:{notHolding}");
+            }
+        }
+
+        // Update prompt visibility
+        if (FlipPromptUI.Instance != null)
+        {
+            if (shouldShowPrompt)
+            {
+                FlipPromptUI.Instance.ShowPrompt();
+            }
+            else
+            {
+                FlipPromptUI.Instance.HidePrompt();
+            }
+        }
+    }
+
+    private bool lastPromptState = false;
 
     public bool TryAddFood(FoodItem food)
     {
@@ -117,28 +163,59 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
     public bool CanFlip()
     {
         return currentFood != null &&
+               isOnGrill &&
+               !currentFood.hasBeenFlipped && // Can only flip once
+               currentFood.currentState == CookingState.Cooking && // ONLY during cooking (0-99%)
                PlayerHands.Instance != null &&
-               PlayerHands.Instance.IsHolding<CookingPan>();
+               !PlayerHands.Instance.IsHoldingSomething(); // NOT holding anything
     }
 
-    void TryStartFlipMinigame()
+    public void TryStartFlipMinigame()
     {
-        if (!CanFlip()) return;
+        Debug.Log("🔍 TryStartFlipMinigame called!");
 
-        if (currentFood.currentState != CookingState.Cooking &&
-            currentFood.currentState != CookingState.Cooked)
+        if (!CanFlip())
         {
-            Debug.LogWarning("Food isn't ready to flip yet!");
+            Debug.LogWarning($"⚠️ Cannot flip! " +
+                $"Food: {(currentFood != null ? currentFood.name : "NULL")}, " +
+                $"IsOnGrill: {isOnGrill}, " +
+                $"State: {(currentFood != null ? currentFood.currentState.ToString() : "NULL")}, " +
+                $"HasBeenFlipped: {(currentFood != null ? currentFood.hasBeenFlipped : false)}, " +
+                $"PlayerHands: {(PlayerHands.Instance != null ? "EXISTS" : "NULL")}, " +
+                $"IsHoldingSomething: {(PlayerHands.Instance != null ? PlayerHands.Instance.IsHoldingSomething() : false)}");
             return;
         }
 
+        // Double-check state (shouldn't be raw or burnt)
+        if (currentFood.currentState == CookingState.Raw)
+        {
+            Debug.LogWarning("Food is still raw! Wait for it to start cooking.");
+            return;
+        }
+
+        if (currentFood.currentState == CookingState.Burnt)
+        {
+            Debug.LogWarning("Food is burnt! Too late to flip.");
+            return;
+        }
+
+        if (currentFood.hasBeenFlipped)
+        {
+            Debug.LogWarning("Already flipped this burger!");
+            return;
+        }
+
+        // Start the minigame!
+        Debug.Log("✅ All checks passed! Starting minigame...");
+
         if (BurgerFlipMinigame.Instance != null)
         {
+            Debug.Log("✅ BurgerFlipMinigame.Instance found!");
             BurgerFlipMinigame.Instance.StartMinigame(currentFood);
         }
         else
         {
-            Debug.LogError("BurgerFlipMinigame not found!");
+            Debug.LogError("❌ BurgerFlipMinigame.Instance is NULL!");
         }
     }
 
@@ -190,6 +267,12 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
             col.isTrigger = false;
 
         isOnGrill = false;
+
+        // Hide flip prompt when dropping pan
+        if (FlipPromptUI.Instance != null)
+        {
+            FlipPromptUI.Instance.HidePrompt();
+        }
     }
 
     public void OnPlaceAt(Transform targetPosition)
@@ -229,6 +312,17 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
 
     public string GetPromptText()
     {
+        // Priority 1: Show flip prompt if cooking and not flipped yet
+        if (currentFood != null &&
+            isOnGrill &&
+            currentFood.currentState == CookingState.Cooking &&
+            !currentFood.hasBeenFlipped &&
+            PlayerHands.Instance != null &&
+            !PlayerHands.Instance.IsHoldingSomething())
+        {
+            return "F to Flip Burger!";
+        }
+
         // Holding plate with food -> transfer to pan
         if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<BurgerPlate>())
         {
@@ -260,7 +354,7 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
             return "Pan Already Has Food";
         }
 
-        // Empty hands -> pick up pan
+        // Empty hands -> pick up pan (shows when cooked or not cooking)
         if (PlayerHands.Instance != null && !PlayerHands.Instance.IsHoldingSomething())
         {
             return $"E to Pick Up {GetItemName()}";
