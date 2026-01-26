@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using DG.Tweening;
 using TMPro;
+using System.Linq;
 
 public class PlayerInteract : MonoBehaviour
 {
@@ -62,31 +63,68 @@ public class PlayerInteract : MonoBehaviour
         CheckForInteractable();
 
         // Check for F key press (flip minigame for CookingPan)
-        // Use the already-detected interactable instead of a fresh raycast
         if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
         {
+            Debug.Log("🔑🔑🔑 F KEY PRESSED! 🔑🔑🔑");
+            Debug.Log($"Current Interactable: {(currentInteractable != null ? "EXISTS" : "NULL")}");
+
             if (currentInteractable != null)
             {
-                // Try to get CookingPan from the current interactable
-                CookingPan pan = (currentInteractable as MonoBehaviour)?.GetComponent<CookingPan>();
+                Debug.Log($"Interactable Type: {currentInteractable.GetType().Name}");
 
-                if (pan != null)
+                // currentInteractable is IInteractable, need to get the GameObject
+                Component component = currentInteractable as Component;
+
+                Debug.Log($"Component cast result: {(component != null ? component.GetType().Name : "NULL")}");
+
+                if (component != null)
                 {
-                    Debug.Log($"🔑 F pressed while looking at {pan.gameObject.name}");
+                    CookingPan pan = component.GetComponent<CookingPan>();
 
-                    if (pan.CanFlip())
+                    Debug.Log($"CookingPan found: {(pan != null ? "YES" : "NO")}");
+
+                    if (pan != null)
                     {
-                        Debug.Log("✅ CanFlip returned true, starting minigame...");
-                        pan.TryStartFlipMinigame();
+                        Debug.Log($"🔑 F pressed while looking at {pan.gameObject.name}");
+                        Debug.Log($"Calling CanFlip()...");
+
+                        bool canFlip = pan.CanFlip();
+                        Debug.Log($"CanFlip returned: {canFlip}");
+
+                        if (canFlip)
+                        {
+                            Debug.Log("✅ CanFlip returned true, calling TryStartFlipMinigame...");
+                            pan.TryStartFlipMinigame();
+                        }
+                        else
+                        {
+                            Debug.Log("❌ CanFlip returned false - checking why:");
+
+                            // Debug CanFlip conditions
+                            bool hasFood = pan.currentFood != null;
+                            bool onGrill = pan.isOnGrill;
+                            bool isHolding = PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething();
+
+                            Debug.Log($"  Has Food: {hasFood}");
+                            Debug.Log($"  Is On Grill: {onGrill}");
+                            Debug.Log($"  Player Holding Something: {isHolding}");
+
+                            if (hasFood)
+                            {
+                                Debug.Log($"  Food State: {pan.currentFood.currentState}");
+                                Debug.Log($"  Has Been Flipped: {pan.currentFood.hasBeenFlipped}");
+                            }
+                        }
                     }
                     else
                     {
-                        Debug.Log("❌ CanFlip returned false - check conditions");
+                        Debug.Log("🔑 F pressed but not looking at a CookingPan");
+                        Debug.Log($"Component has these components: {string.Join(", ", component.GetComponents<Component>().Select(c => c.GetType().Name))}");
                     }
                 }
                 else
                 {
-                    Debug.Log("🔑 F pressed but not looking at a CookingPan");
+                    Debug.Log("❌ Could not cast currentInteractable to Component!");
                 }
             }
             else

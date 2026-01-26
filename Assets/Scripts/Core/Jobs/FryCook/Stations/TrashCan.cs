@@ -1,154 +1,77 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// Enhanced Trash Can - destroys food, plates, pans, and individual layers
-/// Works layer-by-layer for both plates and pans
+/// Trash can - destroys burnt/unwanted food
+/// Also handles burnt pan disposal, spawning a clean pan
 /// </summary>
 public class TrashCan : MonoBehaviour, IInteractable
 {
     public string GetPromptText()
     {
-        if (!PlayerHands.Instance.IsHoldingSomething())
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething())
         {
-            return "Trash Can";
-        }
+            IHoldable heldItem = PlayerHands.Instance.currentItem?.GetComponent<IHoldable>();
 
-        GameObject heldItem = PlayerHands.Instance.currentItem;
-
-        // Case 1: Holding plate
-        if (heldItem.GetComponent<BurgerPlate>() != null)
-        {
-            BurgerPlate plate = heldItem.GetComponent<BurgerPlate>();
-
-            if (plate.layers.Count > 0)
+            // Check for burnt pan disposal
+            BurntPanDisposal burntPan = PlayerHands.Instance.currentItem?.GetComponent<BurntPanDisposal>();
+            if (burntPan != null)
             {
-                GameObject topLayer = plate.layers[plate.layers.Count - 1];
-                return $"E to Remove {GetLayerName(topLayer)}";
+                return "E to Trash Burnt Burger (Get Clean Pan)";
             }
-            else
-            {
-                return "E to Trash Empty Plate";
-            }
-        }
 
-        // Case 2: Holding pan
-        if (heldItem.GetComponent<CookingPan>() != null)
-        {
-            CookingPan pan = heldItem.GetComponent<CookingPan>();
-
-            if (pan.currentFood != null)
+            if (heldItem is FoodItem)
             {
-                return $"E to Remove {pan.currentFood.GetItemName()}";
+                return "E to Trash Food";
             }
-            else
+
+            // Check for any cooking pan
+            if (heldItem is CookingPan)
             {
-                return "E to Trash Empty Pan";
+                return "E to Trash Pan";
             }
         }
 
-        // Case 3: Holding food directly
-        if (heldItem.GetComponent<FoodItem>() != null)
-        {
-            FoodItem food = heldItem.GetComponent<FoodItem>();
-            return $"E to Trash {food.GetItemName()}";
-        }
-
-        // Case 4: Generic item
-        return "E to Trash Item";
+        return "Trash Can";
     }
 
     public void Interact()
     {
-        if (!PlayerHands.Instance.IsHoldingSomething())
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething())
         {
-            return;
-        }
+            IHoldable heldItem = PlayerHands.Instance.currentItem?.GetComponent<IHoldable>();
 
-        GameObject heldItem = PlayerHands.Instance.currentItem;
-
-        // Case 1: Trashing a burger plate
-        if (heldItem.GetComponent<BurgerPlate>() != null)
-        {
-            BurgerPlate plate = heldItem.GetComponent<BurgerPlate>();
-
-            // If plate has layers, remove top layer first
-            if (plate.layers.Count > 0)
+            // Check for burnt pan disposal first
+            BurntPanDisposal burntPan = PlayerHands.Instance.currentItem?.GetComponent<BurntPanDisposal>();
+            if (burntPan != null)
             {
-                GameObject topLayer = plate.RemoveTopLayer();
-                string layerName = GetLayerName(topLayer);
+                Debug.Log($"🗑️ Trashing burnt pan - will spawn clean pan");
 
-                Destroy(topLayer);
-                Debug.Log($"🗑️ Removed and trashed: {layerName}");
-
-                // Plate still in hand, just lighter now
-                return;
-            }
-            else
-            {
-                // Empty plate - trash the whole thing
-                Destroy(heldItem);
+                // Clear from player hands first
+                GameObject burntPanObject = PlayerHands.Instance.currentItem;
                 PlayerHands.Instance.currentItem = null;
-                Debug.Log("🗑️ Trashed empty plate");
+
+                // Call the disposal which will spawn clean pan
+                burntPan.OnDisposed();
                 return;
             }
-        }
 
-        // Case 2: Trashing a cooking pan
-        if (heldItem.GetComponent<CookingPan>() != null)
-        {
-            CookingPan pan = heldItem.GetComponent<CookingPan>();
-
-            // If pan has food, remove it first
-            if (pan.currentFood != null)
+            // Handle regular food items
+            if (heldItem is FoodItem food)
             {
-                string foodName = pan.currentFood.GetItemName();
-                GameObject foodObj = pan.currentFood.gameObject;
-
-                pan.RemoveFood(); // Remove from pan
-
-                Destroy(foodObj);
-                Debug.Log($"🗑️ Removed and trashed: {foodName}");
-
-                // Pan still in hand, now empty
-                return;
-            }
-            else
-            {
-                // Empty pan - trash the whole thing
-                Destroy(heldItem);
+                Debug.Log($"🗑️ Trashed {food.GetItemName()}");
+                Destroy(PlayerHands.Instance.currentItem);
                 PlayerHands.Instance.currentItem = null;
-                Debug.Log("🗑️ Trashed empty pan");
+                return;
+            }
+
+            // Handle regular cooking pans (non-burnt)
+            if (heldItem is CookingPan)
+            {
+                Debug.Log($"🗑️ Trashed cooking pan");
+                Destroy(PlayerHands.Instance.currentItem);
+                PlayerHands.Instance.currentItem = null;
                 return;
             }
         }
-
-        // Case 3: Trashing food item directly
-        if (heldItem.GetComponent<FoodItem>() != null)
-        {
-            FoodItem food = heldItem.GetComponent<FoodItem>();
-            string foodName = food.GetItemName();
-
-            Destroy(heldItem);
-            PlayerHands.Instance.currentItem = null;
-            Debug.Log($"🗑️ Trashed {foodName}");
-            return;
-        }
-
-        // Case 4: Generic trash
-        Debug.Log($"🗑️ Trashed {heldItem.name}");
-        Destroy(heldItem);
-        PlayerHands.Instance.currentItem = null;
-    }
-
-    string GetLayerName(GameObject layer)
-    {
-        if (layer.GetComponent<BottomBun>() != null)
-            return "Bottom Bun";
-        if (layer.GetComponent<TopBun>() != null)
-            return "Top Bun";
-        if (layer.GetComponent<FoodItem>() != null)
-            return layer.GetComponent<FoodItem>().GetItemName();
-
-        return layer.name;
     }
 }

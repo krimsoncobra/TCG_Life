@@ -64,13 +64,18 @@ public class BurgerFlipMinigame : MonoBehaviour
     private Vector3 spawnPosition; // Store where to spawn result
     private Quaternion spawnRotation;
     private bool isPlaying = false;
-    private int currentFlips = 0;
+    private int currentFlips = 0; // Successful flips
+    private int totalAttempts = 0; // Total attempts (hits + misses)
     private int perfectFlips = 0;
     private float currentSpeed;
     private bool movingRight = true;
     private RectTransform trackRect;
     private float trackHeight;
     private float trackWidth;
+
+    // Input locking to prevent spam
+    private bool canPressSpace = true;
+    private bool hasAttemptedThisCycle = false;
 
     void Awake()
     {
@@ -127,11 +132,13 @@ public class BurgerFlipMinigame : MonoBehaviour
 
         MoveIndicator();
 
-        // Use New Input System
-        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+        // Use New Input System with input lock
+        if (canPressSpace && Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
         {
-            CheckHit();
             Debug.Log("⌨️ SPACE pressed in minigame!");
+            hasAttemptedThisCycle = true;
+            canPressSpace = false; // Lock input until indicator resets
+            CheckHit();
         }
     }
 
@@ -195,8 +202,15 @@ public class BurgerFlipMinigame : MonoBehaviour
 
         isPlaying = true;
         currentFlips = 0;
+        totalAttempts = 0; // RESET attempts counter!
         perfectFlips = 0;
         currentSpeed = indicatorSpeed;
+
+        // Reset input locks
+        canPressSpace = true;
+        hasAttemptedThisCycle = false;
+
+        Debug.Log("🔄 Reset all minigame counters and locks");
 
         if (verticalMovement)
         {
@@ -391,9 +405,20 @@ public class BurgerFlipMinigame : MonoBehaviour
             float movement = currentSpeed * Time.deltaTime;
             indicator.anchoredPosition -= new Vector2(0, movement);
 
+            // Check if indicator has passed the bottom (missed the window)
             if (indicator.anchoredPosition.y < -trackHeight / 2 - 100)
             {
+                // If player didn't attempt during this cycle, count as miss
+                if (!hasAttemptedThisCycle)
+                {
+                    Debug.Log($"❌ Auto-miss! Player didn't press during cycle");
+                    OnMiss(); // This will increment totalAttempts and check completion
+                }
+
+                // Reset for next cycle
                 indicator.anchoredPosition = new Vector2(0, trackHeight / 2 + 100);
+                canPressSpace = true;
+                hasAttemptedThisCycle = false;
             }
         }
         else
@@ -406,8 +431,17 @@ public class BurgerFlipMinigame : MonoBehaviour
 
                 if (indicator.anchoredPosition.x >= trackWidth / 2)
                 {
+                    // Reached end - check if player attempted
+                    if (!hasAttemptedThisCycle)
+                    {
+                        Debug.Log($"❌ Auto-miss! Player didn't press during cycle");
+                        OnMiss(); // This will increment totalAttempts and check completion
+                    }
+
                     indicator.anchoredPosition = new Vector2(trackWidth / 2, indicator.anchoredPosition.y);
                     movingRight = false;
+                    canPressSpace = true;
+                    hasAttemptedThisCycle = false;
                 }
             }
             else
@@ -416,8 +450,17 @@ public class BurgerFlipMinigame : MonoBehaviour
 
                 if (indicator.anchoredPosition.x <= -trackWidth / 2)
                 {
+                    // Reached end - check if player attempted
+                    if (!hasAttemptedThisCycle)
+                    {
+                        Debug.Log($"❌ Auto-miss! Player didn't press during cycle");
+                        OnMiss(); // This will increment totalAttempts and check completion
+                    }
+
                     indicator.anchoredPosition = new Vector2(-trackWidth / 2, indicator.anchoredPosition.y);
                     movingRight = true;
+                    canPressSpace = true;
+                    hasAttemptedThisCycle = false;
                 }
             }
         }
@@ -491,6 +534,7 @@ public class BurgerFlipMinigame : MonoBehaviour
     void OnPerfectHit()
     {
         currentFlips++;
+        totalAttempts++; // Count this attempt
         perfectFlips++;
         currentSpeed += speedIncrease;
 
@@ -500,10 +544,10 @@ public class BurgerFlipMinigame : MonoBehaviour
         }
 
         // Flash GOLD for perfect hit
-        StartCoroutine(FlashElement(perfectLine, new Color(1f, 0.84f, 0f))); // Gold color
-        StartCoroutine(FlashElement(indicator, new Color(1f, 0.84f, 0f))); // Gold color
+        StartCoroutine(FlashElement(perfectLine, new Color(1f, 0.84f, 0f)));
+        StartCoroutine(FlashElement(indicator, new Color(1f, 0.84f, 0f)));
 
-        Debug.Log($"⭐ PERFECT! Flip {currentFlips}/{flipsRequired}");
+        Debug.Log($"⭐ PERFECT! Hits: {currentFlips} | Attempts: {totalAttempts}/{flipsRequired}");
 
         if (currentFood != null)
         {
@@ -516,6 +560,7 @@ public class BurgerFlipMinigame : MonoBehaviour
     void OnGoodHit()
     {
         currentFlips++;
+        totalAttempts++; // Count this attempt
         currentSpeed += speedIncrease * 0.5f;
 
         if (goodSound != null && audioSource != null)
@@ -527,7 +572,7 @@ public class BurgerFlipMinigame : MonoBehaviour
         StartCoroutine(FlashElement(goodZone, Color.green));
         StartCoroutine(FlashElement(indicator, Color.green));
 
-        Debug.Log($"✓ Good! Flip {currentFlips}/{flipsRequired}");
+        Debug.Log($"✓ Good! Hits: {currentFlips} | Attempts: {totalAttempts}/{flipsRequired}");
 
         if (currentFood != null)
         {
@@ -539,21 +584,27 @@ public class BurgerFlipMinigame : MonoBehaviour
 
     void OnMiss()
     {
+        totalAttempts++; // Count this attempt
+
         if (missSound != null && audioSource != null)
         {
             audioSource.PlayOneShot(missSound);
         }
 
         StartCoroutine(FlashElement(indicator, Color.red));
-        Debug.Log($"❌ Miss! Try again...");
+        Debug.Log($"❌ MISS! Hits: {currentFlips} | Attempts: {totalAttempts}/{flipsRequired}");
+
+        CheckCompletion();
     }
 
     void CheckCompletion()
     {
         UpdateUI();
 
-        if (currentFlips >= flipsRequired)
+        // End game after 4 attempts (regardless of hits/misses)
+        if (totalAttempts >= flipsRequired)
         {
+            Debug.Log($"🎮 Game Over! {currentFlips} successful hits out of {totalAttempts} attempts");
             EndMinigame(true);
         }
     }
@@ -617,18 +668,62 @@ public class BurgerFlipMinigame : MonoBehaviour
         EnablePlayerControls();
         Debug.Log("✅ Player controls enabled");
 
-        // Spawn cooked burger on plate
-        Debug.Log($"🍽️ Attempting to spawn at position: {spawnPosition}");
-
-        if (cookedBurgerPlatePrefab != null)
+        // Spawn cooked burger on plate IN FRONT OF PLAYER
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
         {
-            Debug.Log($"✅ Prefab found! Instantiating...");
-            GameObject cookedPlate = Instantiate(cookedBurgerPlatePrefab, spawnPosition, spawnRotation);
-            Debug.Log($"🍽️ Spawned cooked burger on plate: {cookedPlate.name}");
+            // Calculate spawn position in front of player
+            Vector3 playerPos = player.transform.position;
+            Vector3 playerForward = player.transform.forward;
+            Vector3 spawnPos = playerPos + playerForward * 2f; // 2 meters in front
+            spawnPos.y = playerPos.y + 1f; // 1 meter above ground (will fall)
+
+            Debug.Log($"🍽️ Attempting to spawn at position: {spawnPos} (in front of player)");
+
+            if (cookedBurgerPlatePrefab != null)
+            {
+                Debug.Log($"✅ Prefab found! Instantiating...");
+                GameObject cookedPlate = Instantiate(cookedBurgerPlatePrefab, spawnPos, Quaternion.identity);
+
+                // Ensure it has BurgerPlate component (IInteractable)
+                BurgerPlate plateComponent = cookedPlate.GetComponent<BurgerPlate>();
+                if (plateComponent == null)
+                {
+                    plateComponent = cookedPlate.AddComponent<BurgerPlate>();
+                    Debug.Log("➕ Added BurgerPlate component");
+                }
+
+                // Ensure it's tagged as Interactable
+                if (!cookedPlate.CompareTag("Interactable"))
+                {
+                    cookedPlate.tag = "Interactable";
+                    Debug.Log("➕ Tagged as Interactable");
+                }
+
+                // Add physics if not already present
+                if (cookedPlate.GetComponent<Rigidbody>() == null)
+                {
+                    Rigidbody rb = cookedPlate.AddComponent<Rigidbody>();
+                    rb.mass = 0.5f;
+                    Debug.Log("➕ Added Rigidbody to spawned plate");
+                }
+
+                if (cookedPlate.GetComponent<Collider>() == null)
+                {
+                    BoxCollider col = cookedPlate.AddComponent<BoxCollider>();
+                    Debug.Log("➕ Added BoxCollider to spawned plate");
+                }
+
+                Debug.Log($"🍽️ Spawned cooked burger on plate: {cookedPlate.name}");
+            }
+            else
+            {
+                Debug.LogWarning("⚠️ Cooked Burger Plate Prefab not assigned! Assign in Inspector.");
+            }
         }
         else
         {
-            Debug.LogWarning("⚠️ Cooked Burger Plate Prefab not assigned! Assign in Inspector.");
+            Debug.LogError("❌ Could not find Player GameObject! Make sure it's tagged 'Player'");
         }
 
         Debug.Log("✅ Success! Perfectly cooked burger on plate!");
@@ -647,15 +742,59 @@ public class BurgerFlipMinigame : MonoBehaviour
         }
         EnablePlayerControls();
 
-        // Spawn burnt burger in pan
-        if (burntBurgerPanPrefab != null)
+        // Spawn burnt burger in pan IN FRONT OF PLAYER
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
         {
-            GameObject burntPan = Instantiate(burntBurgerPanPrefab, spawnPosition, spawnRotation);
-            Debug.Log($"🔥 Spawned burnt burger in pan at {spawnPosition}");
+            // Calculate spawn position in front of player
+            Vector3 playerPos = player.transform.position;
+            Vector3 playerForward = player.transform.forward;
+            Vector3 spawnPos = playerPos + playerForward * 2f; // 2 meters in front
+            spawnPos.y = playerPos.y + 1f; // 1 meter above ground (will fall)
+
+            if (burntBurgerPanPrefab != null)
+            {
+                GameObject burntPan = Instantiate(burntBurgerPanPrefab, spawnPos, Quaternion.identity);
+
+                // Ensure it has CookingPan component (IInteractable)
+                CookingPan panComponent = burntPan.GetComponent<CookingPan>();
+                if (panComponent == null)
+                {
+                    panComponent = burntPan.AddComponent<CookingPan>();
+                    Debug.Log("➕ Added CookingPan component");
+                }
+
+                // Ensure it's tagged as Interactable
+                if (!burntPan.CompareTag("Interactable"))
+                {
+                    burntPan.tag = "Interactable";
+                    Debug.Log("➕ Tagged as Interactable");
+                }
+
+                // Add physics if not already present
+                if (burntPan.GetComponent<Rigidbody>() == null)
+                {
+                    Rigidbody rb = burntPan.AddComponent<Rigidbody>();
+                    rb.mass = 0.5f;
+                    Debug.Log("➕ Added Rigidbody to burnt pan");
+                }
+
+                if (burntPan.GetComponent<Collider>() == null)
+                {
+                    BoxCollider col = burntPan.AddComponent<BoxCollider>();
+                    Debug.Log("➕ Added BoxCollider to burnt pan");
+                }
+
+                Debug.Log($"🔥 Spawned burnt burger in pan at {spawnPos}");
+            }
+            else
+            {
+                Debug.LogWarning("⚠️ Burnt Burger Pan Prefab not assigned! Assign in Inspector.");
+            }
         }
         else
         {
-            Debug.LogWarning("⚠️ Burnt Burger Pan Prefab not assigned! Assign in Inspector.");
+            Debug.LogError("❌ Could not find Player GameObject!");
         }
 
         Debug.Log("💀 Failure! Burnt burger in pan!");
@@ -665,17 +804,17 @@ public class BurgerFlipMinigame : MonoBehaviour
     {
         if (scoreText != null)
         {
-            scoreText.text = $"Flips: {currentFlips}/{flipsRequired}";
+            scoreText.text = $"Attempt {totalAttempts}/{flipsRequired} | Hits: {currentFlips}";
         }
 
         if (comboText != null)
         {
-            comboText.text = perfectFlips > 0 ? $"Perfect: {perfectFlips}" : "";
+            comboText.text = perfectFlips > 0 ? $"⭐ Perfect: {perfectFlips}" : "";
         }
 
         if (instructionText != null)
         {
-            instructionText.text = "Press SPACE to match the spacebar!";
+            instructionText.text = "Press SPACE!";
         }
     }
 
