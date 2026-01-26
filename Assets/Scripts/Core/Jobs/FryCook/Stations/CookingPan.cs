@@ -19,11 +19,12 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
     public FoodItem currentFood;
     public bool isOnGrill = false;
 
-    // Note: F key is now handled in PlayerInteract.cs, not here
+    // Note: F key is now handled in FlipInputHandler.cs, not here
 
     private Rigidbody rb;
     private Collider col;
     private Vector3 originalScale;
+    private bool lastPromptState = false; // MOVED HERE - must be declared before use
 
     void Awake()
     {
@@ -62,54 +63,38 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
 
     void UpdateFlipPrompt()
     {
-        // Show prompt when LOOKING at pan on grill with cooking food
-        // (not when holding it - that doesn't make sense!)
-
+        // Only show prompt when ALL conditions are met:
         bool hasFood = currentFood != null;
         bool onGrill = isOnGrill;
         bool isCooking = hasFood && currentFood.currentState == CookingState.Cooking;
         bool notFlipped = hasFood && !currentFood.hasBeenFlipped;
         bool notHolding = PlayerHands.Instance == null || !PlayerHands.Instance.IsHoldingSomething();
 
-        bool shouldShowPrompt =
-            hasFood &&
-            onGrill &&
-            isCooking &&
-            notFlipped &&
-            notHolding; // Only show when NOT holding anything
+        bool shouldShowPrompt = hasFood && onGrill && isCooking && notFlipped && notHolding;
 
-        // Debug logging (only log when state changes)
+        // ONLY update UI when state CHANGES (not every frame!)
         if (shouldShowPrompt != lastPromptState)
         {
             lastPromptState = shouldShowPrompt;
 
             if (shouldShowPrompt)
             {
-                Debug.Log("🟢 Flip prompt should SHOW (looking at cooking pan on grill)");
+                Debug.Log("🟢 Flip prompt ACTIVATED");
+                if (FlipPromptUI.Instance != null)
+                {
+                    FlipPromptUI.Instance.ShowPrompt();
+                }
             }
             else
             {
-                Debug.Log($"🔴 Flip prompt should HIDE | " +
-                    $"HasFood:{hasFood} OnGrill:{onGrill} Cooking:{isCooking} " +
-                    $"NotFlipped:{notFlipped} NotHolding:{notHolding}");
-            }
-        }
-
-        // Update prompt visibility
-        if (FlipPromptUI.Instance != null)
-        {
-            if (shouldShowPrompt)
-            {
-                FlipPromptUI.Instance.ShowPrompt();
-            }
-            else
-            {
-                FlipPromptUI.Instance.HidePrompt();
+                Debug.Log("🔴 Flip prompt DEACTIVATED");
+                if (FlipPromptUI.Instance != null)
+                {
+                    FlipPromptUI.Instance.HidePrompt();
+                }
             }
         }
     }
-
-    private bool lastPromptState = false;
 
     public bool TryAddFood(FoodItem food)
     {

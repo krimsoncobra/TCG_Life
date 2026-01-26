@@ -1,6 +1,5 @@
-﻿using DG.Tweening; // DOTween
+﻿using DG.Tweening;
 using UnityEngine;
-using UnityEngine.SceneManagement; // ← ADDED: For SceneManager
 using TMPro;
 
 public class DayNightManager : MonoBehaviour
@@ -15,7 +14,7 @@ public class DayNightManager : MonoBehaviour
     public float dayIntensity = 1.5f;
     public float nightIntensity = 0.3f;
 
-    [Header("Clock UI")] // ← ADDED: Missing header/field
+    [Header("Clock UI")]
     public TextMeshProUGUI clockText;
 
     private float cycleTime = 0f;
@@ -23,15 +22,20 @@ public class DayNightManager : MonoBehaviour
 
     void Start()
     {
-        // ← FIXED: Use FindFirstObjectByType (non-obsolete)
         if (sunLight == null)
-            sunLight = Object.FindFirstObjectByType<Light>();
+            sunLight = FindFirstObjectByType<Light>();
 
-        // ← FIXED: Added proper fallback with SceneManager using
         if (sunLight == null)
         {
-            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
             sunLight = lights.Length > 0 ? lights[0] : null;
+        }
+
+        // Load time from GameManager if it exists
+        if (GameManager.Instance != null)
+        {
+            cycleTime = GameManager.Instance.dayNightCycle;
+            Debug.Log($"⏰ Loaded cycle time from GameManager: {cycleTime:F2}");
         }
 
         StartCycle();
@@ -40,10 +44,16 @@ public class DayNightManager : MonoBehaviour
     void StartCycle()
     {
         cycleTween?.Kill();
-        cycleTween = DOTween.To(() => cycleTime, x => cycleTime = x, 1f, dayDuration)
+
+        // Start from current cycleTime (loaded from GameManager)
+        float startTime = cycleTime % 1f;
+
+        cycleTween = DOTween.To(() => cycleTime, x => cycleTime = x, cycleTime + 1f, dayDuration)
             .SetEase(Ease.Linear)
-            .SetLoops(-1)
+            .SetLoops(-1, LoopType.Incremental)
             .OnUpdate(UpdateCycle);
+
+        Debug.Log($"⏰ Day/Night cycle started at {startTime:F2}");
     }
 
     void UpdateCycle()
@@ -54,10 +64,10 @@ public class DayNightManager : MonoBehaviour
         // Rotate sun
         if (sunLight != null)
         {
-            sunLight.transform.rotation = Quaternion.Euler(sunAngle, 45f, 0f); // 45° tilt for realism
+            sunLight.transform.rotation = Quaternion.Euler(sunAngle, 45f, 0f);
 
-            // Dawn/Dusk transition (0.25-0.75 normalized)
-            float t = Mathf.Clamp01(Mathf.Abs(normalizedTime - 0.5f) * 2f); // 0 at noon/midnight, 1 at dawn/dusk
+            // Dawn/Dusk transition
+            float t = Mathf.Clamp01(Mathf.Abs(normalizedTime - 0.5f) * 2f);
             Color lightColor = Color.Lerp(nightColor, dayColor, t);
             float lightIntensity = Mathf.Lerp(nightIntensity, dayIntensity, t);
 
@@ -65,11 +75,16 @@ public class DayNightManager : MonoBehaviour
             sunLight.intensity = lightIntensity;
         }
 
-        // ← FIXED: Clock update (now with proper field reference)
+        // Update clock
         UpdateClock();
+
+        // Save to GameManager periodically (every second)
+        if (GameManager.Instance != null && Time.frameCount % 60 == 0)
+        {
+            GameManager.Instance.UpdateDayNightCycle(cycleTime);
+        }
     }
 
-    // ← MOVED: Separate method for clock to avoid scope issues
     void UpdateClock()
     {
         if (clockText == null) return;
@@ -82,5 +97,28 @@ public class DayNightManager : MonoBehaviour
         clockText.text = $"{displayHours:D2}:{minutes:D2} {ampm}";
     }
 
-    public float GetDayTimeHours() => (cycleTime % 1f) * 24f; // 0-24 for clock/phone
+    public float GetDayTimeHours() => (cycleTime % 1f) * 24f;
+
+    public float GetCycleTime() => cycleTime;
+
+    /// <summary>
+    /// Set cycle time (called by GameManager when loading scene)
+    /// </summary>
+    public void SetCycleTime(float time)
+    {
+        cycleTime = time;
+        Debug.Log($"⏰ Cycle time set to: {time:F2}");
+        UpdateCycle(); // Immediate update
+    }
+
+    void OnDestroy()
+    {
+        // Save final time to GameManager before scene unloads
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.UpdateDayNightCycle(cycleTime);
+        }
+
+        cycleTween?.Kill();
+    }
 }

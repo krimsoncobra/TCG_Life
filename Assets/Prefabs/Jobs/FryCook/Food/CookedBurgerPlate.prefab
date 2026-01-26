@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 5112268175527964688}
   - component: {fileID: 2743578161815069734}
   - component: {fileID: -1108670280333048416}
+  - component: {fileID: -5753185074465280352}
   m_Layer: 0
   m_Name: CookedBurgerPlate
   m_TagString: Interactable
@@ -81,8 +82,30 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 0.33715886, y: 0.15851152, z: 0.35672507}
+  m_Center: {x: 0.0013748806, y: 0.07621437, z: 0.001063029}
+--- !u!114 &-5753185074465280352
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1247444618948990398}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0683fd32548f7184a9c5da9d5c0bafcc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BurgerPlate
+  stackPosition: {fileID: 0}
+  layerHeight: 0.02
+  handOffset: {x: 0, y: -0.1, z: 0.3}
+  handRotation: {x: 0, y: 0, z: 0}
+  handScale: {x: 1, y: 1, z: 1}
+  foodItemOffset: -0.01
+  bottomBunOffset: 0
+  topBunOffset: 0
+  condimentOffset: 0
+  layers: []
 --- !u!1 &3739807675753939970
 GameObject:
   m_ObjectHideFlags: 0

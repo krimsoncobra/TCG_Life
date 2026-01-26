@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 using DG.Tweening;
 using TMPro;
 using System.Linq;
@@ -15,6 +14,11 @@ public class PlayerInteract : MonoBehaviour
     public float maxDistance = 4f;
     public LayerMask interactLayer;
 
+    [Header("Swap Settings")]
+    [Tooltip("Distance in front of player to drop swapped items")]
+    public float swapDropDistance = 1.5f;
+    public float swapDropHeight = 0.5f;
+
     [Header("Debug")]
     public bool showDebugRays = true;
     public bool showDebugLogs = false;
@@ -22,6 +26,7 @@ public class PlayerInteract : MonoBehaviour
     private bool isPromptActive = false;
     private InputAction interactAction;
     private IInteractable currentInteractable;
+    private GameObject currentLookedAtObject;
 
     void Awake()
     {
@@ -61,77 +66,6 @@ public class PlayerInteract : MonoBehaviour
     void Update()
     {
         CheckForInteractable();
-
-        // Check for F key press (flip minigame for CookingPan)
-        if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
-        {
-            Debug.Log("🔑🔑🔑 F KEY PRESSED! 🔑🔑🔑");
-            Debug.Log($"Current Interactable: {(currentInteractable != null ? "EXISTS" : "NULL")}");
-
-            if (currentInteractable != null)
-            {
-                Debug.Log($"Interactable Type: {currentInteractable.GetType().Name}");
-
-                // currentInteractable is IInteractable, need to get the GameObject
-                Component component = currentInteractable as Component;
-
-                Debug.Log($"Component cast result: {(component != null ? component.GetType().Name : "NULL")}");
-
-                if (component != null)
-                {
-                    CookingPan pan = component.GetComponent<CookingPan>();
-
-                    Debug.Log($"CookingPan found: {(pan != null ? "YES" : "NO")}");
-
-                    if (pan != null)
-                    {
-                        Debug.Log($"🔑 F pressed while looking at {pan.gameObject.name}");
-                        Debug.Log($"Calling CanFlip()...");
-
-                        bool canFlip = pan.CanFlip();
-                        Debug.Log($"CanFlip returned: {canFlip}");
-
-                        if (canFlip)
-                        {
-                            Debug.Log("✅ CanFlip returned true, calling TryStartFlipMinigame...");
-                            pan.TryStartFlipMinigame();
-                        }
-                        else
-                        {
-                            Debug.Log("❌ CanFlip returned false - checking why:");
-
-                            // Debug CanFlip conditions
-                            bool hasFood = pan.currentFood != null;
-                            bool onGrill = pan.isOnGrill;
-                            bool isHolding = PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething();
-
-                            Debug.Log($"  Has Food: {hasFood}");
-                            Debug.Log($"  Is On Grill: {onGrill}");
-                            Debug.Log($"  Player Holding Something: {isHolding}");
-
-                            if (hasFood)
-                            {
-                                Debug.Log($"  Food State: {pan.currentFood.currentState}");
-                                Debug.Log($"  Has Been Flipped: {pan.currentFood.hasBeenFlipped}");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Debug.Log("🔑 F pressed but not looking at a CookingPan");
-                        Debug.Log($"Component has these components: {string.Join(", ", component.GetComponents<Component>().Select(c => c.GetType().Name))}");
-                    }
-                }
-                else
-                {
-                    Debug.Log("❌ Could not cast currentInteractable to Component!");
-                }
-            }
-            else
-            {
-                Debug.Log("🔑 F pressed but no interactable detected");
-            }
-        }
     }
 
     void CheckForInteractable()
@@ -155,25 +89,61 @@ public class PlayerInteract : MonoBehaviour
             Debug.DrawRay(ray.origin, ray.direction * maxDistance, Color.cyan);
         }
 
-        // Perform raycast
-        bool hitSomething = Physics.Raycast(ray, out RaycastHit hit, maxDistance, interactLayer);
+        // Perform raycast - now gets ALL hits (not just first)
+        RaycastHit[] hits = Physics.RaycastAll(ray, maxDistance, interactLayer);
+
+        // Sort hits by distance (closest first)
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         // Debug logging
-        if (showDebugLogs && Time.frameCount % 60 == 0) // Only log every 60 frames to avoid spam
+        if (showDebugLogs && Time.frameCount % 60 == 0)
         {
-            if (hitSomething)
+            if (hits.Length > 0)
             {
-                Debug.Log($"🎯 RAYCAST HIT: {hit.collider.name} | Tag: {hit.collider.tag} | Dist: {hit.distance:F2}m");
+                Debug.Log($"🎯 RAYCAST HIT {hits.Length} objects");
             }
         }
 
-        if (hitSomething)
+        // Find first valid interactable (skip player and child objects of held items)
+        RaycastHit? validHit = null;
+        foreach (RaycastHit hit in hits)
         {
+            // Skip player objects
+            if (hit.collider.gameObject.layer == LayerMask.NameToLayer("Player") ||
+                hit.collider.CompareTag("Player"))
+            {
+                if (showDebugLogs && Time.frameCount % 60 == 0)
+                    Debug.Log($"⏭️ Skipping player object: {hit.collider.name}");
+                continue;
+            }
+
+            // Skip if this is a child of what we're holding
+            if (PlayerHands.Instance != null &&
+                PlayerHands.Instance.IsHoldingSomething() &&
+                hit.collider.transform.IsChildOf(PlayerHands.Instance.currentItem.transform))
+            {
+                if (showDebugLogs && Time.frameCount % 60 == 0)
+                    Debug.Log($"⏭️ Skipping child of held item: {hit.collider.name}");
+                continue;
+            }
+
+            // Found a valid hit!
+            validHit = hit;
+            break;
+        }
+
+        if (validHit.HasValue)
+        {
+            RaycastHit hit = validHit.Value;
+
             // Draw green line to hit point
             if (showDebugRays)
             {
                 Debug.DrawLine(ray.origin, hit.point, Color.green);
             }
+
+            // Store the object we're looking at
+            currentLookedAtObject = hit.collider.gameObject;
 
             // Check if it's interactable
             if (hit.collider.CompareTag("Interactable"))
@@ -188,13 +158,24 @@ public class PlayerInteract : MonoBehaviour
                 {
                     currentInteractable = interactable;
 
+                    // Get prompt text - will show swap prompt if applicable
+                    string promptText = GetContextualPromptText(interactable, hit.collider.gameObject);
+
                     if (!isPromptActive)
                     {
                         if (showDebugLogs)
                             Debug.Log($"🔔 Activating prompt for first time!");
 
-                        ShowPrompt(interactable.GetPromptText());
+                        ShowPrompt(promptText);
                         isPromptActive = true;
+                    }
+                    else
+                    {
+                        // Update prompt text dynamically
+                        if (this.promptText != null)
+                        {
+                            this.promptText.text = promptText;
+                        }
                     }
                     return;
                 }
@@ -211,7 +192,57 @@ public class PlayerInteract : MonoBehaviour
             HidePrompt();
             isPromptActive = false;
             currentInteractable = null;
+            currentLookedAtObject = null;
         }
+    }
+
+    string GetContextualPromptText(IInteractable interactable, GameObject targetObject)
+    {
+        // Check if we're holding something and looking at another holdable
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHoldingSomething())
+        {
+            IHoldable lookedAtHoldable = targetObject.GetComponent<IHoldable>();
+
+            if (lookedAtHoldable != null)
+            {
+                // CRITICAL CHECK: Don't allow swapping with yourself or your child objects!
+                GameObject currentHeldItem = PlayerHands.Instance.currentItem;
+
+                // Check if target is the same object we're holding
+                if (targetObject == currentHeldItem)
+                {
+                    if (showDebugLogs)
+                        Debug.Log("⚠️ Target is the item we're holding - no swap");
+                    return interactable.GetPromptText();
+                }
+
+                // Check if target is a child of what we're holding
+                if (targetObject.transform.IsChildOf(currentHeldItem.transform))
+                {
+                    if (showDebugLogs)
+                        Debug.Log("⚠️ Target is a child of held item - no swap");
+                    return interactable.GetPromptText();
+                }
+
+                // Check if we're holding a child of the target
+                if (currentHeldItem.transform.IsChildOf(targetObject.transform))
+                {
+                    if (showDebugLogs)
+                        Debug.Log("⚠️ Held item is a child of target - no swap");
+                    return interactable.GetPromptText();
+                }
+
+                // Valid swap target - show swap prompt
+                IHoldable currentHoldable = currentHeldItem?.GetComponent<IHoldable>();
+                string currentItemName = currentHoldable?.GetItemName() ?? "Item";
+                string targetItemName = lookedAtHoldable.GetItemName();
+
+                return $"E to Swap {currentItemName} for {targetItemName}";
+            }
+        }
+
+        // Default to regular prompt
+        return interactable.GetPromptText();
     }
 
     void ShowPrompt(string text)
@@ -219,7 +250,8 @@ public class PlayerInteract : MonoBehaviour
         if (promptText != null)
         {
             promptText.text = text;
-            Debug.Log($"✅ Set prompt text to: {text}");
+            if (showDebugLogs)
+                Debug.Log($"✅ Set prompt text to: {text}");
         }
         else
         {
@@ -231,15 +263,11 @@ public class PlayerInteract : MonoBehaviour
             promptCanvasGroup.DOFade(1f, 0.2f);
             promptCanvasGroup.interactable = true;
             promptCanvasGroup.blocksRaycasts = true;
-            Debug.Log($"✅ Fading prompt to Alpha 1 (currently: {promptCanvasGroup.alpha})");
         }
         else
         {
             Debug.LogError("❌ Prompt Canvas Group is NULL!");
         }
-
-        if (showDebugLogs)
-            Debug.Log($"📝 Showing prompt: {text}");
     }
 
     void HidePrompt()
@@ -255,7 +283,107 @@ public class PlayerInteract : MonoBehaviour
         if (showDebugLogs)
             Debug.Log($"🔧 Interacting with: {currentInteractable}");
 
+        // Check if this is a swap situation
+        if (PlayerHands.Instance != null &&
+            PlayerHands.Instance.IsHoldingSomething() &&
+            currentLookedAtObject != null)
+        {
+            IHoldable lookedAtHoldable = currentLookedAtObject.GetComponent<IHoldable>();
+
+            if (lookedAtHoldable != null && lookedAtHoldable.CanPickup())
+            {
+                GameObject currentHeldItem = PlayerHands.Instance.currentItem;
+
+                // CRITICAL: Don't swap with yourself or child objects!
+                bool isSameObject = currentLookedAtObject == currentHeldItem;
+                bool isChildOfHeld = currentLookedAtObject.transform.IsChildOf(currentHeldItem.transform);
+                bool isParentOfHeld = currentHeldItem.transform.IsChildOf(currentLookedAtObject.transform);
+
+                if (isSameObject || isChildOfHeld || isParentOfHeld)
+                {
+                    if (showDebugLogs)
+                        Debug.Log("⚠️ Cannot swap with self or child objects - running normal interaction");
+                    // Run normal interaction instead
+                    currentInteractable.Interact();
+                    return;
+                }
+
+                // Valid swap - perform it
+                PerformItemSwap(currentLookedAtObject);
+                return;
+            }
+        }
+
+        // Regular interaction
         currentInteractable.Interact();
+    }
+
+    void PerformItemSwap(GameObject newItem)
+    {
+        if (PlayerHands.Instance == null) return;
+
+        // Get current item
+        GameObject currentItem = PlayerHands.Instance.currentItem;
+        IHoldable currentHoldable = currentItem?.GetComponent<IHoldable>();
+
+        if (currentHoldable == null)
+        {
+            Debug.LogWarning("⚠️ Current item is not IHoldable!");
+            return;
+        }
+
+        Debug.Log($"🔄 Swapping {currentHoldable.GetItemName()} for {newItem.name}");
+
+        // Step 1: Drop current item in front of player
+        Vector3 dropPosition = CalculateDropPosition();
+
+        currentHoldable.OnDrop();
+        currentItem.transform.position = dropPosition;
+
+        // Make sure dropped item is interactable
+        Collider col = currentItem.GetComponent<Collider>();
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = false;
+        }
+
+        if (!currentItem.CompareTag("Interactable"))
+        {
+            currentItem.tag = "Interactable";
+        }
+
+        Rigidbody rb = currentItem.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        // Step 2: Clear hands
+        PlayerHands.Instance.currentItem = null;
+
+        // Step 3: Pick up new item
+        bool pickedUp = PlayerHands.Instance.TryPickup(newItem);
+
+        if (pickedUp)
+        {
+            Debug.Log($"✅ Successfully swapped items!");
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ Failed to pick up new item after dropping old one");
+        }
+    }
+
+    Vector3 CalculateDropPosition()
+    {
+        // Drop in front of player
+        Vector3 forwardPosition = transform.position + transform.forward * swapDropDistance;
+        forwardPosition.y = transform.position.y + swapDropHeight;
+        return forwardPosition;
     }
 
     // Draw gizmo in Scene view to show raycast range

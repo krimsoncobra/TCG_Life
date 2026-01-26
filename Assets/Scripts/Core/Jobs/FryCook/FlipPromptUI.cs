@@ -1,8 +1,10 @@
 ﻿using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 /// <summary>
 /// Shows "Press F to Flip!" prompt when burger is ready to flip
+/// Now with cook progress indicator
 /// </summary>
 public class FlipPromptUI : MonoBehaviour
 {
@@ -11,6 +13,7 @@ public class FlipPromptUI : MonoBehaviour
     [Header("UI References")]
     public GameObject promptPanel;
     public TextMeshProUGUI promptText;
+    public Image progressBar; // Optional: Add a progress bar
 
     [Header("Animation")]
     public float pulseSpeed = 2f;
@@ -32,13 +35,11 @@ public class FlipPromptUI : MonoBehaviour
             return;
         }
 
-        // FORCE hide the prompt panel
         HidePromptImmediate();
     }
 
     void Start()
     {
-        // Double-check it's hidden after first frame
         HidePromptImmediate();
     }
 
@@ -85,7 +86,7 @@ public class FlipPromptUI : MonoBehaviour
 
             if (promptText != null)
             {
-                promptText.text = "Press F to Flip! 🍳";
+                promptText.text = "Press F to Flip!";
             }
             pulseTimer = 0f;
         }
@@ -101,6 +102,28 @@ public class FlipPromptUI : MonoBehaviour
                 promptPanel.SetActive(false);
                 Debug.Log("🔽 FlipPromptUI: Hiding prompt");
             }
+        }
+    }
+
+    /// <summary>
+    /// Update prompt text dynamically (e.g., with cook progress)
+    /// </summary>
+    public void UpdatePromptText(string text)
+    {
+        if (promptText != null)
+        {
+            promptText.text = text;
+        }
+    }
+
+    /// <summary>
+    /// Update progress bar if you have one
+    /// </summary>
+    public void UpdateProgress(float progress)
+    {
+        if (progressBar != null)
+        {
+            progressBar.fillAmount = progress;
         }
     }
 }

@@ -9,6 +9,7 @@ using UnityEngine.InputSystem.Controls;
 /// <summary>
 /// Guitar Hero style burger flip minigame - GameObject version
 /// Drag GameObjects with CinemachineCamera components
+/// Tracks perfect hits for tip bonuses
 /// </summary>
 public class BurgerFlipMinigame : MonoBehaviour
 {
@@ -61,12 +62,14 @@ public class BurgerFlipMinigame : MonoBehaviour
 
     private FoodItem currentFood;
     private CookingPan currentPan;
+    private Grill currentGrill; // Store reference to the grill
     private Vector3 spawnPosition; // Store where to spawn result
     private Quaternion spawnRotation;
     private bool isPlaying = false;
     private int currentFlips = 0; // Successful flips
     private int totalAttempts = 0; // Total attempts (hits + misses)
     private int perfectFlips = 0;
+    public int lastPerfectHits = 0; // Track perfect hits from last game for tip bonus
     private float currentSpeed;
     private bool movingRight = true;
     private RectTransform trackRect;
@@ -183,9 +186,29 @@ public class BurgerFlipMinigame : MonoBehaviour
             yield break;
         }
 
-        // Store pan position for spawning results later
-        spawnPosition = currentPan.transform.position;
-        spawnRotation = currentPan.transform.rotation;
+        // Get reference to the grill
+        currentGrill = currentPan.GetComponentInParent<Grill>();
+        if (currentGrill == null)
+        {
+            Debug.LogWarning("⚠️ Could not find Grill parent! Will spawn at pan position.");
+        }
+
+        // Store spawn position (prefer grill position over pan position)
+        if (currentGrill != null)
+        {
+            // Spawn in front of grill
+            spawnPosition = currentGrill.transform.position + currentGrill.transform.forward * 1.5f;
+            spawnPosition.y = currentGrill.transform.position.y + 1f;
+            spawnRotation = currentGrill.transform.rotation;
+            Debug.Log($"📍 Will spawn in front of grill at: {spawnPosition}");
+        }
+        else
+        {
+            // Fallback: spawn at pan position
+            spawnPosition = currentPan.transform.position;
+            spawnRotation = currentPan.transform.rotation;
+            Debug.Log($"📍 Will spawn at pan position: {spawnPosition}");
+        }
 
         Debug.Log($"🗑️ Despawning pan and burger, will spawn result at {spawnPosition}");
 
@@ -203,7 +226,7 @@ public class BurgerFlipMinigame : MonoBehaviour
         isPlaying = true;
         currentFlips = 0;
         totalAttempts = 0; // RESET attempts counter!
-        perfectFlips = 0;
+        perfectFlips = 0; // RESET perfect hits counter
         currentSpeed = indicatorSpeed;
 
         // Reset input locks
@@ -360,6 +383,7 @@ public class BurgerFlipMinigame : MonoBehaviour
             Cursor.visible = false;
         }
     }
+
     void SwitchToMinigameCamera()
     {
         if (playerCamera != null)
@@ -535,7 +559,7 @@ public class BurgerFlipMinigame : MonoBehaviour
     {
         currentFlips++;
         totalAttempts++; // Count this attempt
-        perfectFlips++;
+        perfectFlips++; // Count perfect hit
         currentSpeed += speedIncrease;
 
         if (perfectSound != null && audioSource != null)
@@ -547,7 +571,7 @@ public class BurgerFlipMinigame : MonoBehaviour
         StartCoroutine(FlashElement(perfectLine, new Color(1f, 0.84f, 0f)));
         StartCoroutine(FlashElement(indicator, new Color(1f, 0.84f, 0f)));
 
-        Debug.Log($"⭐ PERFECT! Hits: {currentFlips} | Attempts: {totalAttempts}/{flipsRequired}");
+        Debug.Log($"⭐ PERFECT! Hits: {currentFlips} | Attempts: {totalAttempts}/{flipsRequired} | Perfect Hits: {perfectFlips}");
 
         if (currentFood != null)
         {
@@ -620,6 +644,10 @@ public class BurgerFlipMinigame : MonoBehaviour
 
         Debug.Log($"🎮 Minigame ended! Success rate: {successRate:P0} ({currentFlips}/{flipsRequired} flips)");
 
+        // SAVE PERFECT HITS for TicketWindow to use
+        lastPerfectHits = perfectFlips;
+        Debug.Log($"⭐ Perfect hits this game: {lastPerfectHits}");
+
         if (isSuccessful)
         {
             // SUCCESS: Burger is perfectly cooked, put it on a plate
@@ -634,8 +662,8 @@ public class BurgerFlipMinigame : MonoBehaviour
         }
 
         string resultText = isSuccessful ?
-            $"🎉 PERFECT FLIP! Burger is ready! {perfectFlips} Perfect hits!" :
-            $"❌ FAILED! Burger burned! Only {currentFlips}/{flipsRequired} flips!";
+            $"PERFECT FLIP! Burger is ready! {perfectFlips} Perfect hits!" :
+            $"FAILED! Burger burned! Only {currentFlips}/{flipsRequired} flips!";
 
         Debug.Log(resultText);
 
@@ -668,62 +696,87 @@ public class BurgerFlipMinigame : MonoBehaviour
         EnablePlayerControls();
         Debug.Log("✅ Player controls enabled");
 
-        // Spawn cooked burger on plate IN FRONT OF PLAYER
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
+        // Spawn cooked burger on plate IN FRONT OF GRILL
+        Debug.Log($"🍽️ Spawning cooked burger at: {spawnPosition}");
+
+        if (cookedBurgerPlatePrefab != null)
         {
-            // Calculate spawn position in front of player
-            Vector3 playerPos = player.transform.position;
-            Vector3 playerForward = player.transform.forward;
-            Vector3 spawnPos = playerPos + playerForward * 2f; // 2 meters in front
-            spawnPos.y = playerPos.y + 1f; // 1 meter above ground (will fall)
+            Debug.Log($"✅ Prefab found! Instantiating...");
+            GameObject cookedPlate = Instantiate(cookedBurgerPlatePrefab, spawnPosition, spawnRotation);
 
-            Debug.Log($"🍽️ Attempting to spawn at position: {spawnPos} (in front of player)");
-
-            if (cookedBurgerPlatePrefab != null)
+            // Ensure it has BurgerPlate component (IInteractable)
+            BurgerPlate plateComponent = cookedPlate.GetComponent<BurgerPlate>();
+            if (plateComponent == null)
             {
-                Debug.Log($"✅ Prefab found! Instantiating...");
-                GameObject cookedPlate = Instantiate(cookedBurgerPlatePrefab, spawnPos, Quaternion.identity);
-
-                // Ensure it has BurgerPlate component (IInteractable)
-                BurgerPlate plateComponent = cookedPlate.GetComponent<BurgerPlate>();
-                if (plateComponent == null)
-                {
-                    plateComponent = cookedPlate.AddComponent<BurgerPlate>();
-                    Debug.Log("➕ Added BurgerPlate component");
-                }
-
-                // Ensure it's tagged as Interactable
-                if (!cookedPlate.CompareTag("Interactable"))
-                {
-                    cookedPlate.tag = "Interactable";
-                    Debug.Log("➕ Tagged as Interactable");
-                }
-
-                // Add physics if not already present
-                if (cookedPlate.GetComponent<Rigidbody>() == null)
-                {
-                    Rigidbody rb = cookedPlate.AddComponent<Rigidbody>();
-                    rb.mass = 0.5f;
-                    Debug.Log("➕ Added Rigidbody to spawned plate");
-                }
-
-                if (cookedPlate.GetComponent<Collider>() == null)
-                {
-                    BoxCollider col = cookedPlate.AddComponent<BoxCollider>();
-                    Debug.Log("➕ Added BoxCollider to spawned plate");
-                }
-
-                Debug.Log($"🍽️ Spawned cooked burger on plate: {cookedPlate.name}");
+                plateComponent = cookedPlate.AddComponent<BurgerPlate>();
+                Debug.Log("➕ Added BurgerPlate component");
             }
-            else
+
+            // CRITICAL: Add burger layers so TicketWindow recognizes it as sellable
+            if (plateComponent.layers.Count == 0)
             {
-                Debug.LogWarning("⚠️ Cooked Burger Plate Prefab not assigned! Assign in Inspector.");
+                Debug.Log("📝 Setting up burger layers for complete burger...");
+
+                // Create dummy GameObjects for the burger parts
+                // Bottom Bun
+                GameObject bottomBun = new GameObject("BottomBun");
+                bottomBun.transform.SetParent(plateComponent.stackPosition);
+                bottomBun.AddComponent<BottomBun>();
+                bottomBun.tag = "Untagged"; // NOT interactable
+                plateComponent.layers.Add(bottomBun);
+
+                // Cooked Patty WITH PERFECT HITS STORED
+                GameObject patty = new GameObject("CookedPatty");
+                patty.transform.SetParent(plateComponent.stackPosition);
+                FoodItem foodItem = patty.AddComponent<FoodItem>();
+                foodItem.currentState = CookingState.Cooked;
+                foodItem.foodName = "Cooked Patty";
+                patty.tag = "Untagged"; // NOT interactable
+
+                // STORE PERFECT HITS IN THE PATTY
+                foodItem.flipBonus = lastPerfectHits; // Store perfect hit count
+                Debug.Log($"⭐ Stored {lastPerfectHits} perfect hits in patty");
+
+                plateComponent.layers.Add(patty);
+
+                // Top Bun
+                GameObject topBun = new GameObject("TopBun");
+                topBun.transform.SetParent(plateComponent.stackPosition);
+                topBun.AddComponent<TopBun>();
+                topBun.tag = "Untagged"; // NOT interactable
+                plateComponent.layers.Add(topBun);
+
+                Debug.Log($"✅ Added {plateComponent.layers.Count} layers to burger plate (children not interactable)");
             }
+
+            // Ensure it's tagged as Interactable
+            if (!cookedPlate.CompareTag("Interactable"))
+            {
+                cookedPlate.tag = "Interactable";
+                Debug.Log("➕ Tagged as Interactable");
+            }
+
+            // Add physics if not already present
+            Rigidbody rb = cookedPlate.GetComponent<Rigidbody>();
+            if (rb == null)
+            {
+                rb = cookedPlate.AddComponent<Rigidbody>();
+                rb.mass = 0.5f;
+                Debug.Log("➕ Added Rigidbody to spawned plate");
+            }
+
+            Collider col = cookedPlate.GetComponent<Collider>();
+            if (col == null)
+            {
+                BoxCollider boxCol = cookedPlate.AddComponent<BoxCollider>();
+                Debug.Log("➕ Added BoxCollider to spawned plate");
+            }
+
+            Debug.Log($"🍽️ Spawned cooked burger on plate: {cookedPlate.name}");
         }
         else
         {
-            Debug.LogError("❌ Could not find Player GameObject! Make sure it's tagged 'Player'");
+            Debug.LogWarning("⚠️ Cooked Burger Plate Prefab not assigned! Assign in Inspector.");
         }
 
         Debug.Log("✅ Success! Perfectly cooked burger on plate!");
@@ -742,59 +795,47 @@ public class BurgerFlipMinigame : MonoBehaviour
         }
         EnablePlayerControls();
 
-        // Spawn burnt burger in pan IN FRONT OF PLAYER
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
+        // Spawn burnt burger in pan IN FRONT OF GRILL
+        Debug.Log($"🔥 Spawning burnt burger at: {spawnPosition}");
+
+        if (burntBurgerPanPrefab != null)
         {
-            // Calculate spawn position in front of player
-            Vector3 playerPos = player.transform.position;
-            Vector3 playerForward = player.transform.forward;
-            Vector3 spawnPos = playerPos + playerForward * 2f; // 2 meters in front
-            spawnPos.y = playerPos.y + 1f; // 1 meter above ground (will fall)
+            GameObject burntPan = Instantiate(burntBurgerPanPrefab, spawnPosition, spawnRotation);
 
-            if (burntBurgerPanPrefab != null)
+            // Ensure it has CookingPan component (IInteractable)
+            CookingPan panComponent = burntPan.GetComponent<CookingPan>();
+            if (panComponent == null)
             {
-                GameObject burntPan = Instantiate(burntBurgerPanPrefab, spawnPos, Quaternion.identity);
-
-                // Ensure it has CookingPan component (IInteractable)
-                CookingPan panComponent = burntPan.GetComponent<CookingPan>();
-                if (panComponent == null)
-                {
-                    panComponent = burntPan.AddComponent<CookingPan>();
-                    Debug.Log("➕ Added CookingPan component");
-                }
-
-                // Ensure it's tagged as Interactable
-                if (!burntPan.CompareTag("Interactable"))
-                {
-                    burntPan.tag = "Interactable";
-                    Debug.Log("➕ Tagged as Interactable");
-                }
-
-                // Add physics if not already present
-                if (burntPan.GetComponent<Rigidbody>() == null)
-                {
-                    Rigidbody rb = burntPan.AddComponent<Rigidbody>();
-                    rb.mass = 0.5f;
-                    Debug.Log("➕ Added Rigidbody to burnt pan");
-                }
-
-                if (burntPan.GetComponent<Collider>() == null)
-                {
-                    BoxCollider col = burntPan.AddComponent<BoxCollider>();
-                    Debug.Log("➕ Added BoxCollider to burnt pan");
-                }
-
-                Debug.Log($"🔥 Spawned burnt burger in pan at {spawnPos}");
+                panComponent = burntPan.AddComponent<CookingPan>();
+                Debug.Log("➕ Added CookingPan component");
             }
-            else
+
+            // Ensure it's tagged as Interactable
+            if (!burntPan.CompareTag("Interactable"))
             {
-                Debug.LogWarning("⚠️ Burnt Burger Pan Prefab not assigned! Assign in Inspector.");
+                burntPan.tag = "Interactable";
+                Debug.Log("➕ Tagged as Interactable");
             }
+
+            // Add physics if not already present
+            if (burntPan.GetComponent<Rigidbody>() == null)
+            {
+                Rigidbody rb = burntPan.AddComponent<Rigidbody>();
+                rb.mass = 0.5f;
+                Debug.Log("➕ Added Rigidbody to burnt pan");
+            }
+
+            if (burntPan.GetComponent<Collider>() == null)
+            {
+                BoxCollider col = burntPan.AddComponent<BoxCollider>();
+                Debug.Log("➕ Added BoxCollider to burnt pan");
+            }
+
+            Debug.Log($"🔥 Spawned burnt burger in pan at {spawnPosition}");
         }
         else
         {
-            Debug.LogError("❌ Could not find Player GameObject!");
+            Debug.LogWarning("⚠️ Burnt Burger Pan Prefab not assigned! Assign in Inspector.");
         }
 
         Debug.Log("💀 Failure! Burnt burger in pan!");
@@ -809,11 +850,20 @@ public class BurgerFlipMinigame : MonoBehaviour
 
         if (comboText != null)
         {
-            comboText.text = perfectFlips > 0 ? $"⭐ Perfect: {perfectFlips}" : "";
+            // Move perfect text to separate line to avoid overlap
+            if (perfectFlips > 0)
+            {
+                comboText.text = $"Perfect: {perfectFlips}";
+            }
+            else
+            {
+                comboText.text = "";
+            }
         }
 
         if (instructionText != null)
         {
+            // Keep instruction separate from other text
             instructionText.text = "Press SPACE!";
         }
     }

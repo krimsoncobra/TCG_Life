@@ -190,6 +190,7 @@ MonoBehaviour:
   handRotation: {x: 0, y: 0, z: 0}
   handScale: {x: 1, y: 1, z: 1}
   foodItemOffset: 0.1
-  bottomBunOffset: 0
-  topBunOffset: 0
+  bottomBunOffset: 0.136
+  topBunOffset: 0.2
+  condimentOffset: 0
   layers: []

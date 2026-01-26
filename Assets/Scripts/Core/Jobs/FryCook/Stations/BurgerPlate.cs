@@ -55,6 +55,7 @@ public class BurgerPlate : MonoBehaviour, IHoldable, IInteractable
         }
     }
 
+
     public bool TryAddLayer(GameObject item)
     {
         if (item == null)
@@ -104,10 +105,17 @@ public class BurgerPlate : MonoBehaviour, IHoldable, IInteractable
                 itemRb.useGravity = false;
             }
 
+            // CRITICAL: Disable colliders on layer items (child objects shouldn't be interactable)
             Collider itemCol = layer.GetComponent<Collider>();
             if (itemCol != null)
             {
                 itemCol.enabled = false;
+            }
+
+            // CRITICAL: Remove Interactable tag from child layers
+            if (layer.CompareTag("Interactable"))
+            {
+                layer.tag = "Untagged";
             }
 
             // Stop cooking if food
