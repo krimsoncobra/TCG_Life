@@ -1,0 +1,132 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &6785250158928660080
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.3570395
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.014388561
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.28456473
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      propertyPath: m_Name
+      value: UncookedFries
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7554163897891582426}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7901740447890791642}
+  m_SourcePrefab: {fileID: 100100000, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+--- !u!1 &5974980107492014881 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: f4eec7d32a081e640912b798f0a4f507, type: 3}
+  m_PrefabInstance: {fileID: 6785250158928660080}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7554163897891582426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5974980107492014881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27924b78c61448f4c8eca02c631b0195, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UncookedFries
+  foodName: Food
+  currentState: 0
+  cookTime: 5
+  burnTime: 3
+  flipBonus: 3
+  currentCookTimer: 0
+  isOnGrill: 0
+  hasBeenFlipped: 0
+  flipBonusTimer: 0
+  handOffset: {x: 0, y: 0, z: 0}
+  handRotation: {x: 0, y: 0, z: 0}
+  handScale: {x: 1, y: 1, z: 1}
+  friesRenderer: {fileID: 0}
+  rawColor: {r: 0.95, g: 0.9, b: 0.7, a: 1}
+  cookingColor: {r: 0.95, g: 0.85, b: 0.5, a: 1}
+  cookedColor: {r: 0.9, g: 0.7, b: 0.2, a: 1}
+  burntColor: {r: 0.2, g: 0.15, b: 0.1, a: 1}
+--- !u!65 &7901740447890791642
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5974980107492014881}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.28273702, y: 0.10393947, z: 0.26894376}
+  m_Center: {x: 0.02049923, y: 0.036175385, z: -0.035049632}

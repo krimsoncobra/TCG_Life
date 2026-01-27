@@ -1,0 +1,167 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6064988842542832333
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8213882917708471827}
+  m_Layer: 0
+  m_Name: FriesPosition
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8213882917708471827
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6064988842542832333}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.004, y: -0.233, z: 0.196}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3052546506662528076}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &3302945722722657191
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_Name
+      value: FryerBasket
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      propertyPath: m_TagString
+      value: Interactable
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8213882917708471827}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4504869073959086366}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7192344920777427764}
+  m_SourcePrefab: {fileID: 100100000, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+--- !u!1 &2384377222661840630 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+  m_PrefabInstance: {fileID: 3302945722722657191}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &4504869073959086366
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2384377222661840630}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.3020275, y: 1.1691401, z: 3.872504}
+  m_Center: {x: -0.014219016, y: 0.024543762, z: -0.47172338}
+--- !u!114 &7192344920777427764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2384377222661840630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f694aa16df4a5441af6b257567eaf63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FryerBasket
+  friesPosition: {fileID: 8213882917708471827}
+  friesScaleMultiplier: 1.5
+  handOffset: {x: 0, y: -0.1, z: 0.3}
+  handRotation: {x: 0, y: 0, z: 0}
+  handScale: {x: 1, y: 1, z: 1}
+  fryerPlacementOffset: {x: 0, y: 0, z: 0}
+  fryerPlacementRotation: {x: 0, y: 180, z: 0}
+  currentFries: {fileID: 0}
+  isInFryer: 0
+--- !u!4 &3052546506662528076 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4f7bb9df1a2e1bc42934e6079f17d940, type: 3}
+  m_PrefabInstance: {fileID: 3302945722722657191}
+  m_PrefabAsset: {fileID: 0}

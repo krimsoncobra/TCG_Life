@@ -1,11 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 
 /// <summary>
 /// Screen-space UI manager for cooking progress
-/// Tracks all active cooking pans and displays their progress
+/// Tracks all active cooking pans AND fryer baskets and displays their progress
 /// NO WORLDSPACE ISSUES!
 /// </summary>
 public class CookingProgressUI : MonoBehaviour
@@ -35,7 +35,10 @@ public class CookingProgressUI : MonoBehaviour
     }
 
     // Track all active cooking pans
-    private Dictionary<CookingPan, CookingProgressBarUI> activeBars = new Dictionary<CookingPan, CookingProgressBarUI>();
+    private Dictionary<CookingPan, CookingProgressBarUI> activePanBars = new Dictionary<CookingPan, CookingProgressBarUI>();
+
+    // Track all active fryer baskets
+    private Dictionary<FryerBasket, CookingProgressBarUI> activeBasketBars = new Dictionary<FryerBasket, CookingProgressBarUI>();
 
     // Singleton for easy access
     public static CookingProgressUI Instance { get; private set; }
@@ -57,12 +60,16 @@ public class CookingProgressUI : MonoBehaviour
         UpdateAllBars();
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    //  COOKING PAN METHODS (Original)
+    // ═══════════════════════════════════════════════════════════════
+
     /// <summary>
     /// Register a pan that's cooking - call this when pan is placed on grill
     /// </summary>
     public void RegisterCookingPan(CookingPan pan)
     {
-        if (pan == null || activeBars.ContainsKey(pan)) return;
+        if (pan == null || activePanBars.ContainsKey(pan)) return;
 
         // Create a new progress bar for this pan
         GameObject barObj = Instantiate(progressBarPrefab, progressContainer);
@@ -70,10 +77,10 @@ public class CookingProgressUI : MonoBehaviour
 
         if (barUI != null)
         {
-            barUI.Initialize(pan);
-            activeBars.Add(pan, barUI);
+            barUI.InitializeForPan(pan);
+            activePanBars.Add(pan, barUI);
 
-            Debug.Log($"Registered cooking pan: {pan.name}");
+            Debug.Log($"✅ Registered cooking pan: {pan.name}");
         }
     }
 
@@ -82,33 +89,93 @@ public class CookingProgressUI : MonoBehaviour
     /// </summary>
     public void UnregisterCookingPan(CookingPan pan)
     {
-        if (pan == null || !activeBars.ContainsKey(pan)) return;
+        if (pan == null || !activePanBars.ContainsKey(pan)) return;
 
-        CookingProgressBarUI barUI = activeBars[pan];
+        CookingProgressBarUI barUI = activePanBars[pan];
         if (barUI != null)
         {
             Destroy(barUI.gameObject);
         }
 
-        activeBars.Remove(pan);
-        Debug.Log($"Unregistered cooking pan: {pan.name}");
+        activePanBars.Remove(pan);
+        Debug.Log($"🔽 Unregistered cooking pan: {pan.name}");
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  FRYER BASKET METHODS (NEW!)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Register a fryer basket that's cooking - call this when basket is placed in fryer
+    /// </summary>
+    public void RegisterFryerBasket(FryerBasket basket)
+    {
+        if (basket == null || activeBasketBars.ContainsKey(basket)) return;
+
+        // Create a new progress bar for this basket
+        GameObject barObj = Instantiate(progressBarPrefab, progressContainer);
+        CookingProgressBarUI barUI = barObj.GetComponent<CookingProgressBarUI>();
+
+        if (barUI != null)
+        {
+            barUI.InitializeForBasket(basket);
+            activeBasketBars.Add(basket, barUI);
+
+            Debug.Log($"✅ Registered fryer basket: {basket.name}");
+        }
+    }
+
+    /// <summary>
+    /// Unregister a basket - call this when basket is picked up or cooking stops
+    /// </summary>
+    public void UnregisterFryerBasket(FryerBasket basket)
+    {
+        if (basket == null || !activeBasketBars.ContainsKey(basket)) return;
+
+        CookingProgressBarUI barUI = activeBasketBars[basket];
+        if (barUI != null)
+        {
+            Destroy(barUI.gameObject);
+        }
+
+        activeBasketBars.Remove(basket);
+        Debug.Log($"🔽 Unregistered fryer basket: {basket.name}");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  UPDATE METHODS
+    // ═══════════════════════════════════════════════════════════════
 
     void UpdateAllBars()
     {
-        // Clean up any null entries
-        List<CookingPan> toRemove = new List<CookingPan>();
-        foreach (var kvp in activeBars)
+        // Clean up any null PAN entries
+        List<CookingPan> pansToRemove = new List<CookingPan>();
+        foreach (var kvp in activePanBars)
         {
             if (kvp.Key == null || kvp.Value == null || !kvp.Key.isOnGrill)
             {
-                toRemove.Add(kvp.Key);
+                pansToRemove.Add(kvp.Key);
             }
         }
 
-        foreach (var pan in toRemove)
+        foreach (var pan in pansToRemove)
         {
             UnregisterCookingPan(pan);
+        }
+
+        // Clean up any null BASKET entries
+        List<FryerBasket> basketsToRemove = new List<FryerBasket>();
+        foreach (var kvp in activeBasketBars)
+        {
+            if (kvp.Key == null || kvp.Value == null || !kvp.Key.isInFryer)
+            {
+                basketsToRemove.Add(kvp.Key);
+            }
+        }
+
+        foreach (var basket in basketsToRemove)
+        {
+            UnregisterFryerBasket(basket);
         }
 
         // Update positions based on display mode
@@ -121,8 +188,13 @@ public class CookingProgressUI : MonoBehaviour
             UpdateFollowPanLayout();
         }
 
-        // Update each bar's content
-        foreach (var kvp in activeBars)
+        // Update each bar's content (both pans and baskets)
+        foreach (var kvp in activePanBars)
+        {
+            kvp.Value.UpdateDisplay();
+        }
+
+        foreach (var kvp in activeBasketBars)
         {
             kvp.Value.UpdateDisplay();
         }
@@ -132,12 +204,24 @@ public class CookingProgressUI : MonoBehaviour
     {
         // Stack bars vertically at top of screen
         int index = 0;
-        foreach (var barUI in activeBars.Values)
+
+        // Position pan bars
+        foreach (var barUI in activePanBars.Values)
         {
             RectTransform rect = barUI.GetComponent<RectTransform>();
             if (rect != null)
             {
-                // Position from top, stacked vertically
+                rect.anchoredPosition = new Vector2(0, -20 - (index * barSpacing));
+            }
+            index++;
+        }
+
+        // Position basket bars (continue from where pans left off)
+        foreach (var barUI in activeBasketBars.Values)
+        {
+            RectTransform rect = barUI.GetComponent<RectTransform>();
+            if (rect != null)
+            {
                 rect.anchoredPosition = new Vector2(0, -20 - (index * barSpacing));
             }
             index++;
@@ -146,44 +230,63 @@ public class CookingProgressUI : MonoBehaviour
 
     void UpdateFollowPanLayout()
     {
-        // Position each bar above its corresponding pan in screen space
-        foreach (var kvp in activeBars)
+        // Position each PAN bar above its corresponding pan in screen space
+        foreach (var kvp in activePanBars)
         {
             CookingPan pan = kvp.Key;
             CookingProgressBarUI barUI = kvp.Value;
 
             if (pan != null && Camera.main != null)
             {
-                // Get world position above the pan
-                Vector3 worldPos = pan.transform.position + worldOffset;
-
-                // Convert to screen position
-                Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
-
-                // Check if behind camera
-                if (screenPos.z > 0)
-                {
-                    // Convert screen position to canvas position
-                    RectTransform rect = barUI.GetComponent<RectTransform>();
-                    if (rect != null)
-                    {
-                        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                            progressContainer as RectTransform,
-                            screenPos,
-                            null,
-                            out Vector2 localPos
-                        );
-
-                        rect.anchoredPosition = localPos;
-                        barUI.gameObject.SetActive(true);
-                    }
-                }
-                else
-                {
-                    // Pan is behind camera, hide bar
-                    barUI.gameObject.SetActive(false);
-                }
+                PositionBarAboveObject(barUI, pan.transform);
             }
+        }
+
+        // Position each BASKET bar above its corresponding basket in screen space
+        foreach (var kvp in activeBasketBars)
+        {
+            FryerBasket basket = kvp.Key;
+            CookingProgressBarUI barUI = kvp.Value;
+
+            if (basket != null && Camera.main != null)
+            {
+                PositionBarAboveObject(barUI, basket.transform);
+            }
+        }
+    }
+
+    void PositionBarAboveObject(CookingProgressBarUI barUI, Transform targetTransform)
+    {
+        if (Camera.main == null) return;
+
+        // Get world position above the object
+        Vector3 worldPos = targetTransform.position + worldOffset;
+
+        // Convert to screen position
+        Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
+
+        // Check if behind camera
+        if (screenPos.z > 0)
+        {
+            // Convert screen position to canvas position
+            RectTransform rect = barUI.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    progressContainer as RectTransform,
+                    screenPos,
+                    null,
+                    out Vector2 localPos
+                );
+
+                rect.anchoredPosition = localPos;
+                barUI.gameObject.SetActive(true);
+            }
+        }
+        else
+        {
+            // Object is behind camera, hide bar
+            barUI.gameObject.SetActive(false);
         }
     }
 }

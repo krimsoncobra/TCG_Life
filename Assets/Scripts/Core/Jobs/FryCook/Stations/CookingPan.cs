@@ -24,7 +24,7 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
     private Rigidbody rb;
     private Collider col;
     private Vector3 originalScale;
-    private bool lastPromptState = false; // MOVED HERE - must be declared before use
+    private bool lastPromptState = false;
 
     void Awake()
     {
@@ -47,7 +47,13 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
         // Handle cooking state
         if (isOnGrill && currentFood != null)
         {
-            if (!currentFood.isOnGrill)
+            // ⚠️ PREVENT FRIES FROM COOKING IN PAN
+            if (currentFood is UncookedFries)
+            {
+                Debug.LogWarning("🍳 Pans are for BURGERS! Fries won't cook here!");
+                // Don't start cooking fries in pan
+            }
+            else if (!currentFood.isOnGrill)
             {
                 currentFood.StartCooking();
             }
@@ -101,6 +107,13 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
         if (currentFood != null)
         {
             Debug.LogWarning("Pan already has food!");
+            return false;
+        }
+
+        // ⚠️ REJECT FRIES - Pans are for burgers only!
+        if (food is UncookedFries)
+        {
+            Debug.LogWarning("🍳 Pans are for cooking BURGERS, not fries! Use a fryer basket for fries.");
             return false;
         }
 
@@ -276,9 +289,13 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
         {
             isOnGrill = true;
 
-            if (CookingProgressUI.Instance != null && currentFood != null)
+            // ⚠️ Don't register fries in pan (they won't cook anyway)
+            if (currentFood != null && !(currentFood is UncookedFries))
             {
-                CookingProgressUI.Instance.RegisterCookingPan(this);
+                if (CookingProgressUI.Instance != null)
+                {
+                    CookingProgressUI.Instance.RegisterCookingPan(this);
+                }
             }
         }
     }
@@ -308,7 +325,21 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
             return "F to Flip Burger!";
         }
 
-        // Holding plate with food -> transfer to pan
+        // Priority 2: If holding basket and pan has fries -> transfer fries to basket
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<FryerBasket>())
+        {
+            FryerBasket basket = PlayerHands.Instance.GetHeldItem<FryerBasket>();
+            if (currentFood is UncookedFries && basket.currentFries == null)
+            {
+                return "E to Transfer Fries to Basket";
+            }
+            else if (basket.currentFries == null)
+            {
+                return "Basket is for Fries Only!";
+            }
+        }
+
+        // Priority 3: Holding plate with food -> transfer to pan
         if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<BurgerPlate>())
         {
             BurgerPlate plate = PlayerHands.Instance.GetHeldItem<BurgerPlate>();
@@ -319,6 +350,11 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
 
                 if (food != null && currentFood == null)
                 {
+                    // Check if it's fries
+                    if (food is UncookedFries)
+                    {
+                        return "Pans are for Burgers! Use Fryer Basket for Fries";
+                    }
                     return $"E to Transfer {food.GetItemName()} to Pan";
                 }
                 else if (currentFood != null)
@@ -328,18 +364,24 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
             }
         }
 
-        // Holding food -> add to pan
+        // Priority 4: Holding food -> add to pan
         if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<FoodItem>())
         {
+            FoodItem heldFood = PlayerHands.Instance.GetHeldItem<FoodItem>();
+
             if (currentFood == null)
             {
-                FoodItem food = PlayerHands.Instance.GetHeldItem<FoodItem>();
-                return $"E to Put {food.GetItemName()} in Pan";
+                // Check if holding fries
+                if (heldFood is UncookedFries)
+                {
+                    return "Pans are for Burgers! Use Fryer Basket for Fries";
+                }
+                return $"E to Put {heldFood.GetItemName()} in Pan";
             }
             return "Pan Already Has Food";
         }
 
-        // Empty hands -> pick up pan (shows when cooked or not cooking)
+        // Priority 5: Empty hands -> pick up pan
         if (PlayerHands.Instance != null && !PlayerHands.Instance.IsHoldingSomething())
         {
             return $"E to Pick Up {GetItemName()}";
@@ -350,7 +392,35 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
 
     public void Interact()
     {
-        // Case 1: Holding plate with food
+        // Case 1: Holding basket - transfer fries from pan to basket
+        if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<FryerBasket>())
+        {
+            FryerBasket basket = PlayerHands.Instance.GetHeldItem<FryerBasket>();
+
+            if (currentFood is UncookedFries && basket.currentFries == null)
+            {
+                // Transfer fries from pan to basket
+                UncookedFries fries = currentFood as UncookedFries;
+                GameObject friesObj = currentFood.gameObject;
+
+                // Remove from pan
+                currentFood = null;
+                friesObj.transform.SetParent(null);
+                friesObj.transform.localScale = Vector3.one;
+
+                // Enable collider/rigidbody
+                Collider friesCol = friesObj.GetComponent<Collider>();
+                if (friesCol != null) friesCol.enabled = true;
+
+                // Add to basket
+                basket.TryAddFries(fries);
+
+                Debug.Log($"🔄 Transferred fries from pan to basket!");
+                return;
+            }
+        }
+
+        // Case 2: Holding plate with food
         if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<BurgerPlate>())
         {
             BurgerPlate plate = PlayerHands.Instance.GetHeldItem<BurgerPlate>();
@@ -363,6 +433,16 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
 
                 if (food != null)
                 {
+                    // Reject fries
+                    if (food is UncookedFries)
+                    {
+                        Debug.LogWarning("🍳 Can't put fries in pan! Use a fryer basket.");
+                        // Put fries back on plate
+                        plate.layers.Add(topLayer);
+                        topLayer.transform.SetParent(plate.transform);
+                        return;
+                    }
+
                     topLayer.transform.SetParent(null);
                     topLayer.transform.localScale = Vector3.one;
                     TryAddFood(food);
@@ -408,12 +488,20 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
             }
         }
 
-        // Case 2: Holding food directly
+        // Case 3: Holding food directly
         if (PlayerHands.Instance != null && PlayerHands.Instance.IsHolding<FoodItem>())
         {
             if (currentFood == null)
             {
                 FoodItem food = PlayerHands.Instance.GetHeldItem<FoodItem>();
+
+                // Reject fries
+                if (food is UncookedFries)
+                {
+                    Debug.LogWarning("🍳 Can't put fries in pan! Use a fryer basket.");
+                    return;
+                }
+
                 GameObject foodObj = PlayerHands.Instance.currentItem;
 
                 PlayerHands.Instance.currentItem = null;
@@ -421,15 +509,18 @@ public class CookingPan : MonoBehaviour, IHoldable, IInteractable
                 foodObj.transform.SetParent(null);
                 foodObj.transform.localScale = Vector3.one;
 
-                TryAddFood(food);
-                PlayerHands.Instance.TryPickup(gameObject);
+                bool added = TryAddFood(food);
 
-                Debug.Log($"🍳 Added {food.GetItemName()} to pan!");
+                if (added)
+                {
+                    PlayerHands.Instance.TryPickup(gameObject);
+                    Debug.Log($"🍳 Added {food.GetItemName()} to pan!");
+                }
                 return;
             }
         }
 
-        // Case 3: Empty hands - pick up
+        // Case 4: Empty hands - pick up
         if (PlayerHands.Instance != null && !PlayerHands.Instance.IsHoldingSomething())
         {
             PlayerHands.Instance.TryPickup(gameObject);

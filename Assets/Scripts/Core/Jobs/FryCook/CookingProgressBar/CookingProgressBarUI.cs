@@ -4,7 +4,7 @@ using TMPro;
 
 /// <summary>
 /// Individual progress bar UI element
-/// One instance per cooking pan
+/// One instance per cooking pan OR fryer basket
 /// Attach this to the ProgressBarEntry prefab
 /// </summary>
 public class CookingProgressBarUI : MonoBehaviour
@@ -21,23 +21,41 @@ public class CookingProgressBarUI : MonoBehaviour
     public Color burntColor = new Color(1f, 0f, 0f);
 
     private CookingPan assignedPan;
+    private FryerBasket assignedBasket;
 
-    public void Initialize(CookingPan pan)
+    public void InitializeForPan(CookingPan pan)
     {
         assignedPan = pan;
+        assignedBasket = null;
+    }
+
+    public void InitializeForBasket(FryerBasket basket)
+    {
+        assignedBasket = basket;
+        assignedPan = null;
     }
 
     public void UpdateDisplay()
     {
-        if (assignedPan == null || assignedPan.currentFood == null)
+        FoodItem food = null;
+
+        // Get food from either pan or basket
+        if (assignedPan != null && assignedPan.currentFood != null)
+        {
+            food = assignedPan.currentFood;
+        }
+        else if (assignedBasket != null && assignedBasket.currentFries != null)
+        {
+            food = assignedBasket.currentFries;
+        }
+
+        if (food == null)
         {
             gameObject.SetActive(false);
             return;
         }
 
         gameObject.SetActive(true);
-
-        FoodItem food = assignedPan.currentFood;
 
         switch (food.currentState)
         {
